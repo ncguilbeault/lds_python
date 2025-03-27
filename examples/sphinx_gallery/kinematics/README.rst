@@ -1,2 +1,2 @@
-Tracking
-========
+Kinematics Inference
+====================
