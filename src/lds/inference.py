@@ -330,6 +330,12 @@ def logLikeLDS_SS_withMissingValues_torch(y, B, Q, m0, V0, Z, R):
     """ Kalman filter implementation of the algorithm described in Shumway and
     Stoffer 2006.
 
+    N: dimensionality of observations
+
+    M: dimnensionality of state
+
+    T: number of observations
+
     :param: y: time series to be smoothed
     :type: y: numpy array (NxT)
 
@@ -421,11 +427,20 @@ def filterEKF_withMissingValues_torch(y, B, Bdot, Q, m0, V0, Z, Zdot, R):
     """ Extended Kalman filter implementation of the algorithm described in
     Chapter 10 of Durbin and Koopman 2012.
 
+    N: dimensionality of observations
+
+    M: dimnensionality of state
+
+    T: number of observations
+
     :param: y: time series to be smoothed
     :type: y: numpy array (NxT)
 
     :param: B: state transition function
     :type: B: :math:`\Re^M\rightarrow\Re^M`
+
+    :param: Bdot: Jacobian of state transition function
+    :type: Bdot: :math:`\Re^M\rightarrow\Re^{M\times M}`
 
     :param: Q: state noise covariance function
     :type: Q: :math:`\Re^M\rightarrow\Re^{M\times M}`
@@ -438,6 +453,9 @@ def filterEKF_withMissingValues_torch(y, B, Bdot, Q, m0, V0, Z, Zdot, R):
 
     :param: Z: state to observation function
     :type: Z: :math:`\Re^M\rightarrow\Re^N`
+
+    :param: Zdot: Jacobian of state to observation function
+    :type: Zdot: :math:`\Re^M\rightarrow\Re^{N\times M}`
 
     :param: R: observations covariance function
     :type: R: :math:`\Re^M\rightarrow\Re^{N\times N}`
@@ -457,7 +475,7 @@ def filterEKF_withMissingValues_torch(y, B, Bdot, Q, m0, V0, Z, Zdot, R):
     # T: number of observations
     # M: dim state space
     # N: dim observations
-    M = B.shape[0]
+    M = m0.shape[0]
     T = y.shape[1]
     N = y.shape[0]
     xnn1 = torch.empty(size=[M, 1], dtype=torch.double)
@@ -498,7 +516,7 @@ def filterEKF_withMissingValues_torch(y, B, Bdot, Q, m0, V0, Z, Zdot, R):
     # k>1
     for k in range(1, T):
         xnn1 = B(xnn)
-        Vnn1 = B(xnn) @ Vnn @ B(xnn).T + Q(xnn)
+        Vnn1 = Bdot(xnn) @ Vnn @ Bdot(xnn).T + Q(xnn)
         if(torch.any(torch.isnan(y[:, k]))):
             xnn = xnn1
             Vnn = Vnn1
