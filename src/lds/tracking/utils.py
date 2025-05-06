@@ -204,8 +204,8 @@ def getNDSwithGaussianNoiseFunctionsForKinematicsAndHO_torch(
                  (1 - alpha * v * dt) * cos_theta -
                  omega * dt * sin_theta)
             B = (alpha * dt * vel_y +
-                 omega * dt * cos_theta +
-                 (1 - alpha * v * dt) * sin_theta)
+                 (1 - alpha * v * dt) * sin_theta +
+                 omega * dt * cos_theta)
             answer[6] = A / math.sqrt(A**2 + B**2)
             answer[7] = B / math.sqrt(A**2 + B**2)
             answer[8] = omega
