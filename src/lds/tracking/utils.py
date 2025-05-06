@@ -90,7 +90,7 @@ def getNDSwithGaussianNoiseFunctionsForKinematicsAndHO_torch(
         cos_theta_R_sigma, sin_theta_R_sigma):
     import torch
 
-    def getBdot(dt, alpha):
+    def getBdot(dt, alpha, epsilon=1e-10):
         def Bdot(x):
             def pAWRTxdot(dt, alpha, cos_theta, vel_x, v):
                 answer = -alpha * dt * cos_theta * vel_x / v + alpha * dt
@@ -117,7 +117,7 @@ def getNDSwithGaussianNoiseFunctionsForKinematicsAndHO_torch(
             cos_theta = x[6]
             sin_theta = x[7]
             omega = x[8]
-            v = math.sqrt(vel_x**2 + vel_y**2)
+            v = math.sqrt(vel_x**2 + vel_y**2 + epsilon)
             A = ((1 - alpha * v * dt) * cos_theta - omega * dt * sin_theta +
                  alpha * dt * vel_x)
             B = ((1 - alpha * v * dt) * sin_theta + omega * dt * cos_theta +
@@ -177,7 +177,6 @@ def getNDSwithGaussianNoiseFunctionsForKinematicsAndHO_torch(
             aBdot[6, 1] = pCosWRTxdot; aBdot[6, 4] = pCosWRTydot; aBdot[6, 6] = pCosWRTcosTheta; aBdot[6, 7] = pCosWRTsinTheta
             aBdot[7, 1] = pSinWRTxdot; aBdot[7, 4] = pSinWRTydot; aBdot[7, 6] = pSinWRTcosTheta; aBdot[7, 7] = pSinWRTsinTheta
             aBdot[8, 8] = 1
-            breakpoint()
             return aBdot
         return Bdot
 
