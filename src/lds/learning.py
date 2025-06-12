@@ -4,7 +4,6 @@ import time
 import numpy as np
 import scipy.optimize
 import warnings
-# import copy
 
 from . import inference
 from .tracking import utils
@@ -76,6 +75,248 @@ def scipy_optimize_SS_tracking_fullV0(y, B, sigma_a0, Qe, Z, diag_R_0,
     options={"disp": disp, "maxiter": max_iter}
     opt_res = scipy.optimize.minimize(optim_criterion, x0, method="Nelder-Mead",
                                       callback=callback, options=options)
+
+
+def torch_lbfgs_optimize_kinematicsHO_logLikeEKF_diagV0(
+    dt, y, sigma_a0,
+    cos_theta_Q_std0,
+    sin_theta_Q_std0,
+    omega_Q_std0,
+    pos_x_R_std0,
+    pos_y_R_std0,
+    cos_theta_R_std0,
+    sin_theta_R_std0,
+    alpha0,
+    m0_kinematics_0,
+    m0_HO_0,
+    sqrt_diag_V0_kinematics_0,
+    sqrt_diag_V0_HO_0,
+    max_iter=20, lr=1.0,
+    tolerance_grad=1e-7,
+    tolerance_change=1e-9,
+    line_search_fn="strong_wolfe",
+    n_epochs = 100, tol=1e-6,
+    vars_to_estimate={
+        "sigma_a": False,
+        "cos_theta_Q_std": True,
+        "sin_theta_Q_std": True,
+        "omega_Q_std": True,
+        "sqrt_pos_x_R_std": False,
+        "sqrt_pos_y_R_std": False,
+        "sqrt_cos_theta_R_std": True,
+        "sqrt_sin_theta_R_std": True,
+        "alpha": True,
+        "m0_kinematics": False,
+        "m0_HO": True,
+        "sqrt_diag_V0_kinematics": False,
+        "sqrt_diag_V0_HO": True,
+    },
+    disp=True):
+
+    import torch
+    def log_likelihood_fn():
+        B, Bdot, Z, Zdot, Q, R = utils.getNDSwithGaussianNoiseFunctionsForKinematicsAndHO_torch(
+            dt=dt, sigma_a=sigma_a,
+            cos_theta_Q_std=cos_theta_Q_std,
+            sin_theta_Q_std=sin_theta_Q_std,
+            omega_Q_std=omega_Q_std,
+            pos_x_R_std=pos_x_R_std,
+            pos_y_R_std=pos_y_R_std,
+            cos_theta_R_std=cos_theta_R_std,
+            sin_theta_R_std=sin_theta_R_std,
+            alpha=alpha,
+        )
+        log_like = inference.logLikeEKF_withMissingValues_torch(
+            y=y, B=B, Bdot=Bdot, Q=Q, m0=m0, V0=V0, Z=Z, Zdot=Zdot, R=R)
+        return log_like
+
+    optim_params = {"max_iter": max_iter, "lr": lr,
+                    "tolerance_grad": tolerance_grad,
+                    "tolerance_change": tolerance_change,
+                    "line_search_fn": line_search_fn}
+    m0_kinematics = m0_kinematics_0
+    m0_HO = m0_HO_0
+    m0 = torch.cat([m0_kinematics_0, m0_HO_0])
+    sqrt_diag_V0_kinematics = sqrt_diag_V0_kinematics_0
+    sqrt_diag_V0_HO = sqrt_diag_V0_HO_0
+    sqrt_diag_V0 = torch.cat([sqrt_diag_V0_kinematics_0, sqrt_diag_V0_HO_0])
+    sigma_a = torch.tensor([sigma_a0], dtype=torch.double)
+    cos_theta_Q_std = torch.tensor([cos_theta_Q_std0], dtype=torch.double)
+    sin_theta_Q_std = torch.tensor([sin_theta_Q_std0], dtype=torch.double)
+    omega_Q_std = torch.tensor([omega_Q_std0], dtype=torch.double)
+
+    pos_x_R_std = torch.tensor([pos_x_R_std0], dtype=torch.double)
+    pos_y_R_std = torch.tensor([pos_y_R_std0], dtype=torch.double)
+    cos_theta_R_std = torch.tensor([cos_theta_R_std0], dtype=torch.double)
+    sin_theta_R_std = torch.tensor([sin_theta_R_std0], dtype=torch.double)
+
+    alpha = torch.tensor([alpha0], dtype=torch.double)
+
+    x = []
+    if vars_to_estimate["sigma_a"]:
+        x.append(sigma_a)
+    if vars_to_estimate["cos_theta_Q_std"]:
+        x.append(cos_theta_Q_std)
+    if vars_to_estimate["sin_theta_Q_std"]:
+        x.append(sin_theta_Q_std)
+    if vars_to_estimate["omega_Q_std"]:
+        x.append(omega_Q_std)
+    if vars_to_estimate["pos_x_R_std"]:
+        x.append(pos_x_R_std)
+    if vars_to_estimate["pos_y_R_std"]:
+        x.append(pos_y_R_std)
+    if vars_to_estimate["cos_theta_R_std"]:
+        x.append(cos_theta_R_std)
+    if vars_to_estimate["sin_theta_R_std"]:
+        x.append(sin_theta_R_std)
+    if vars_to_estimate["alpha"]:
+        x.append(alpha)
+    if vars_to_estimate["m0_kinematics"]:
+        x.append(m0_kinematics)
+    if vars_to_estimate["m0_HO"]:
+        x.append(m0_HO)
+    if vars_to_estimate["sqrt_diag_V0_kinematics"]:
+        x.append(sqrt_diag_V0_kinematics)
+    if vars_to_estimate["sqrt_diag_V0_HO"]:
+        x.append(sqrt_diag_V0_HO)
+    if len(x) == 0:
+        raise RuntimeError("No variable to estimate. Please set one element "
+                           "of vars_to_estimate to True")
+    optimizer = torch.optim.LBFGS(x, **optim_params)
+    for i in range(len(x)):
+        x[i].requires_grad = True
+
+    def closure():
+        optimizer.zero_grad()
+        curEval = -log_likelihood_fn()
+        curEval.backward()
+        print_string = f"ll={-curEval}"
+        if vars_to_estimate["sigma_a"]:
+            print_string += f", sigma_a={sigma_a.item()}"
+        if vars_to_estimate["cos_theta_Q_std"]:
+            print_string += f", cos_theta_Q_std={cos_theta_Q_std.item()}"
+        if vars_to_estimate["sin_theta_Q_std"]:
+            print_string += f", sin_theta_Q_std={sin_theta_Q_std.item()}"
+        if vars_to_estimate["omega_Q_std"]:
+            print_string += f", omega_Q_std={omega_Q_std.item()}"
+        if vars_to_estimate["pos_x_R_std"]:
+            print_string += f", pos_x_R_std={pos_x_R_std.item()}"
+        if vars_to_estimate["pos_y_R_std"]:
+            print_string += f", pos_y_R_std={pos_y_R_std.item()}"
+        if vars_to_estimate["cos_theta_R_std"]:
+            print_string += f", cos_theta_R_std={cos_theta_R_std.item()}"
+        if vars_to_estimate["sin_theta_R_std"]:
+            print_string += f", sin_theta_R_std={sin_theta_R_std.item()}"
+        if vars_to_estimate["alpha"]:
+            print_string += f", alpha={alpha.item()}"
+        if vars_to_estimate["m0_kinematics"]:
+            print_string += f", m0_kinematics={m0_kinematics}"
+        if vars_to_estimate["m0_HO"]:
+            print_string += f", m0_HO={m0_HO}"
+        if vars_to_estimate["sqrt_diag_V0_kinematics"]:
+            print_string += f", sqrt_diag_V0_kinematics={sqrt_diag_V0_kinematics}"
+        if vars_to_estimate["sqrt_diag_V0_HO"]:
+            print_string += f", sqrt_diag_V0_HO={sqrt_diag_V0_HO}"
+        print(print_string)
+        return curEval
+
+    termination_info = "success: reached maximum number of iterations"
+    log_like = []
+    elapsed_time = []
+    start_time = time.time()
+    V0 = torch.diag(sqrt_diag_V0)
+    curEval = -log_likelihood_fn()
+    log_like.append(-curEval.item())
+    elapsed_time.append(time.time() - start_time)
+    print("--------------------------------------------------------------------------------")
+    print(f"startup")
+    print(f"likelihood: {log_like[-1]}")
+    for epoch in range(n_epochs):
+        optimizer.step(closure)
+        curEval = -log_likelihood_fn()
+        log_like.append(-curEval.item())
+        elapsed_time.append(time.time() - start_time)
+        print("--------------------------------------------------------------------------------")
+        print(f"epoch: {epoch}")
+        print(f"likelihood: {log_like[-1]}")
+        if vars_to_estimate["sigma_a"]:
+            print("sigma_a: ")
+            print(sigma_a.item())
+        if vars_to_estimate["cos_theta_Q_std"]:
+            print("cos_theta_Q_std: ")
+            print(cos_theta_Q_std.item())
+        if vars_to_estimate["sin_theta_Q_std"]:
+            print("sin_theta_Q_std: ")
+            print(sin_theta_Q_std.item())
+        if vars_to_estimate["omega_Q_std"]:
+            print("omega_Q_std: ")
+            print(omega_Q_std.item())
+        if vars_to_estimate["pos_x_R_std"]:
+            print("pos_x_R_std: ")
+            print(pos_x_R_std.item())
+        if vars_to_estimate["pos_y_R_std"]:
+            print("pos_y_R_std: ")
+            print(pos_y_R_std.item())
+        if vars_to_estimate["cos_theta_R_std"]:
+            print("cos_theta_R_std: ")
+            print(cos_theta_R_std.item())
+        if vars_to_estimate["sin_theta_R_std"]:
+            print("sin_theta_R_std: ")
+            print(sin_theta_R_std.item())
+        if vars_to_estimate["alpha"]:
+            print("alpha: ")
+            print(alpha.item())
+        if vars_to_estimate["m0_kinematics"]:
+            print("m0_kinematics: ")
+            print(m0_kinematics)
+        if vars_to_estimate["m0_HO"]:
+            print("m0_HO: ")
+            print(m0_HO)
+        if vars_to_estimate["sqrt_diag_V0_kinematics"]:
+            print("sqrt_diag_V0_kinematics: ")
+            print(sqrt_diag_V0_kinematics)
+        if vars_to_estimate["sqrt_diag_V0_HO"]:
+            print("sqrt_diag_V0_HO: ")
+            print(sqrt_diag_V0_HO)
+        if epoch > 0 and log_like[-1] - log_like[-2] < tol:
+            termination_info = "success: converged"
+            breakpoint()
+            break
+    for i in range(len(x)):
+        x[i].requires_grad = False
+
+    estimates = {}
+    if vars_to_estimate["sigma_a"]:
+        estimates["sigma_a"] = sigma_a
+    if vars_to_estimate["cos_theta_Q_std"]:
+        estimates["cos_theta_Q_std"] = cos_theta_Q_std
+    if vars_to_estimate["sin_theta_Q_std"]:
+        estimates["sin_theta_Q_std"] = sin_theta_Q_std
+    if vars_to_estimate["omega_Q_std"]:
+        estimates["omega_Q_std"] = omega_Q_std
+    if vars_to_estimate["pos_x_R_std"]:
+        estimates["pos_x_R_std"] = pos_x_R_std
+    if vars_to_estimate["pos_y_R_std"]:
+        estimates["pos_y_R_std"] = pos_y_R_std
+    if vars_to_estimate["cos_theta_R_std"]:
+        estimates["cos_theta_R_std"] = cos_theta_R_std
+    if vars_to_estimate["sin_theta_R_std"]:
+        estimates["sin_theta_R_std"] = sin_theta_R_std
+    if vars_to_estimate["alpha"]:
+        estimates["alpha"] = alpha
+    if vars_to_estimate["m0_kinematics"]:
+        estimates["m0_kinematics"] = m0_kinematics
+    if vars_to_estimate["m0_HO"]:
+        estimates["m0_HO"] = m0_HO
+    if vars_to_estimate["sqrt_diag_V0_kinematics"]:
+        estimates["sqrt_diag_V0_kinematics"] = sqrt_diag_V0_kinematics
+    if vars_to_estimate["sqrt_diag_V0_HO"]:
+        estimates["sqrt_diag_V0_HO"] = sqrt_diag_V0_HO
+    answer = {"estimates": estimates,
+              "log_like": log_like,
+              "elapsed_time": elapsed_time,
+              "termination_info": termination_info}
+    return answer
 
 
 def scipy_optimize_SS_tracking_diagV0(y, B, sigma_ax0, sigma_ay0, Qe, Z,
@@ -162,8 +403,10 @@ def scipy_optimize_SS_tracking_diagV0(y, B, sigma_ax0, sigma_ay0, Qe, Z,
     return answer
 
 
-def torch_lbfgs_optimize_SS_tracking_diagV0(y, B, sigma_a0, Qe, Z,
-                                            sqrt_diag_R_0, m0_0, sqrt_diag_V0_0,
+def torch_lbfgs_optimize_SS_tracking_diagV0(y, B, Qe, Z,
+                                            sigma_a0, pos_x_R_std0,
+                                            pos_y_R_std0,
+                                            m0_0, sqrt_diag_V0_0,
                                             max_iter=20, lr=1.0,
                                             tolerance_grad=1e-7,
                                             tolerance_change=1e-9,
@@ -171,15 +414,20 @@ def torch_lbfgs_optimize_SS_tracking_diagV0(y, B, sigma_a0, Qe, Z,
                                             line_search_fn="strong_wolfe",
                                             vars_to_estimate={
                                                 "sigma_a": True,
-                                                "R": True, "m0": True, "V0": True},
-                                            disp=True):
+                                                "pos_x_R_std": True,
+                                                "pos_y_R_std": True,
+                                                "m0": True,
+                                                "V0": True}):
 
     import torch
     def log_likelihood_fn():
         V0 = torch.diag(sqrt_diag_V0**2)
-        R = torch.diag(sqrt_diag_R**2)
+        e1 = torch.tensor([1, 0], dtype=torch.double)
+        e2 = torch.tensor([0, 1], dtype=torch.double)
+        R = (pos_x_R_std**2 * torch.outer(e1, e1) +
+             pos_y_R_std**2 * torch.outer(e2, e2))
         Q = Qe * sigma_a**2
-        log_like = inference.logLikeLDS_SS_withMissingValues_torch(
+        log_like = inference.logLikeLDS_withMissingValues_torch(
             y=y, B=B, Q=Q, m0=m0, V0=V0, Z=Z, R=R)
         return log_like
 
@@ -188,14 +436,17 @@ def torch_lbfgs_optimize_SS_tracking_diagV0(y, B, sigma_a0, Qe, Z,
                     "tolerance_change": tolerance_change,
                     "line_search_fn": line_search_fn}
     sigma_a = torch.tensor([sigma_a0], dtype=torch.double)
-    sqrt_diag_R = sqrt_diag_R_0
+    pos_x_R_std = pos_x_R_std0
+    pos_y_R_std = pos_y_R_std0
     m0 = m0_0
     sqrt_diag_V0 = sqrt_diag_V0_0
     x = []
     if vars_to_estimate["sigma_a"]:
         x.append(sigma_a)
-    if vars_to_estimate["sqrt_diag_R"]:
-        x.append(sqrt_diag_R)
+    if vars_to_estimate["pos_x_R_std"]:
+        x.append(pos_x_R_std)
+    if vars_to_estimate["pos_y_R_std"]:
+        x.append(pos_y_R_std)
     if vars_to_estimate["m0"]:
         x.append(m0)
     if vars_to_estimate["sqrt_diag_V0"]:
@@ -210,41 +461,34 @@ def torch_lbfgs_optimize_SS_tracking_diagV0(y, B, sigma_a0, Qe, Z,
     def closure():
         optimizer.zero_grad()
         curEval = -log_likelihood_fn()
-        print(f"in closure, ll={-curEval}")
-        for i in range(len(x)):
-            print(f"x[{i}]={x[i]}")
-        # curEval.backward(retain_graph=True)
+        print(f"ll={-curEval}")
         curEval.backward()
+        print_string = f"ll={-curEval}"
+        if vars_to_estimate["sigma_a"]:
+            print_string += f", sigma_a={sigma_a.item()}"
+        if vars_to_estimate["pos_x_R_std"]:
+            print_string += f", pos_x_R_std={pos_x_R_std.item()}"
+        if vars_to_estimate["pos_y_R_std"]:
+            print_string += f", pos_y_R_std={pos_y_R_std.item()}"
+        if vars_to_estimate["m0"]:
+            print_string += f", m0={m0}"
+        if vars_to_estimate["sqrt_diag_V0"]:
+            print_string += f", sqrt_diag_V0={sqrt_diag_V0}"
+        print(print_string)
         return curEval
 
     termination_info = "success: reached maximum number of iterations"
     log_like = []
     elapsed_time = []
     start_time = time.time()
+    curEval = -log_likelihood_fn()
+    log_like.append(-curEval.item())
+    elapsed_time.append(time.time() - start_time)
+    print("--------------------------------------------------------------------------------")
+    print(f"startup")
+    print(f"likelihood: {log_like[-1]}")
     for epoch in range(n_epochs):
         curEval = optimizer.step(closure)
-#         optimizer.step(closure)
-#         prev_x = copy.deepcopy(x)
-#         try:
-#             curEval = optimizer.step(closure)
-#         except RuntimeError:
-#             breakpoint()
-#             # begin backtracking
-#             if vars_to_estimate["sigma_a"]:
-#                 sigma_a = prev_x.pop(0)
-#                 sigma_a.requires_grad = False
-#             if vars_to_estimate["sqrt_diag_R"]:
-#                 sqrt_diag_R = prev_x.pop(0)
-#                 sqrt_diag_R.requires_grad = False
-#             if vars_to_estimate["m0"]:
-#                 m0 = prev_x.pop(0)
-#                 m0.requires_grad = False
-#             if vars_to_estimate["sqrt_diag_V0"]:
-#                 sqrt_diag_V0 = prev_x.pop(0)
-#                 sqrt_diag_V0.requires_grad = False
-#             # end backtracking
-#             termination_info = "nan generated"
-#             break
         curEval = -log_likelihood_fn()
         log_like.append(-curEval.item())
         elapsed_time.append(time.time() - start_time)
@@ -254,9 +498,12 @@ def torch_lbfgs_optimize_SS_tracking_diagV0(y, B, sigma_a0, Qe, Z,
         if vars_to_estimate["sigma_a"]:
             print("sigma_a: ")
             print(sigma_a)
-        if vars_to_estimate["sqrt_diag_R"]:
-            print("sqrt_diag_R: ")
-            print(sqrt_diag_R)
+        if vars_to_estimate["pos_x_R_std"]:
+            print("pos_x_R_std: ")
+            print(pos_x_R_std)
+        if vars_to_estimate["pos_y_R_std"]:
+            print("pos_y_R_std: ")
+            print(pos_y_R_std)
         if vars_to_estimate["m0"]:
             print("m0: ")
             print(m0)
@@ -270,15 +517,24 @@ def torch_lbfgs_optimize_SS_tracking_diagV0(y, B, sigma_a0, Qe, Z,
         x[i].requires_grad = False
 
     estimates = {}
+    initial_conditions = {}
     if vars_to_estimate["sigma_a"]:
+        initial_conditions["sigma_a"] = sigma_a0
         estimates["sigma_a"] = sigma_a
-    if vars_to_estimate["sqrt_diag_R"]:
-        estimates["sqrt_diag_R"] = sqrt_diag_R
+    if vars_to_estimate["pos_x_R_std"]:
+        initial_conditions["pos_x_R_std"] = pos_x_R_std0
+        estimates["pos_x_R_std"] = pos_x_R_std
+    if vars_to_estimate["pos_y_R_std"]:
+        initial_conditions["pos_y_R_std"] = pos_y_R_std0
+        estimates["pos_y_R_std"] = pos_y_R_std
     if vars_to_estimate["m0"]:
+        initial_conditions["m0"] = m0_0
         estimates["m0"] = m0
     if vars_to_estimate["sqrt_diag_V0"]:
+        initial_conditions["sqrt_diag_V0"] = sqrt_diag_V0_0
         estimates["sqrt_diag_V0"] = sqrt_diag_V0
-    answer = {"estimates": estimates,
+    answer = {"initial_conditions": initial_conditions,
+              "estimates": estimates,
               "log_like": log_like,
               "elapsed_time": elapsed_time,
               "termination_info": termination_info}
