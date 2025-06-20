@@ -1,0 +1,78 @@
+\documentclass[12pt]{article}
+
+\usepackage{natbib}
+\usepackage{apalike}
+\usepackage[hypertexnames=false,colorlinks=true,breaklinks]{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage[margin=1.5cm]{geometry}
+\usepackage{xcolor}
+\usepackage{amsthm}
+\usepackage{graphicx}
+\usepackage{siunitx}
+\sisetup{output-exponent-marker=\ensuremath{\mathrm{e}}}
+\usepackage{subcaption}
+\usepackage{endfloat}
+
+\newtheorem{claim}{Claim}
+
+\title{Inference in the Extended Kalman Filter method}
+\author{Joaquin Rapela\thanks{j.rapela@ucl.ac.uk}}
+
+\begin{document}
+
+\maketitle
+
+\section{Extended Kalman Filter (EKF) model}
+\label{sec:ekfModel}
+
+The next equations provide the EKF
+model~\citep[][Chapter~10]{durbinAndKoopman12}.
+
+\begin{alignat}{4}
+    \mathbf{x}_{n+1}&=A_n(\mathbf{x}_n)+\mathbf{w}_n\quad&&\mathbf{w}_n\sim N(\mathbf{w}_n|\mathbf{0},Q_n(\mathbf{x}_n))\quad&&\mathbf{x}_n\in\mathbb{R}^M&&\label{eq:state}\\
+    \mathbf{y}_n&=C_n(\mathbf{x}_{n})+\mathbf{v}_n\quad&&\mathbf{v}_n\sim N(\mathbf{v}_n|\mathbf{0},R_n(\mathbf{x}_n))\quad&&\mathbf{y}_n\in\mathbb{R}^N&&\quad n=1\ldots T\label{eq:observation}\\
+    \mathbf{x}_0&\sim N(\mathbf{w}_n|\mathbf{m}_0,V_0)&& &&\nonumber
+\end{alignat}
+
+\noindent where $A_n(\mathbf{x}_n):\mathbb{R}^M\rightarrow\mathbb{R}^M$ and
+$C_n(\mathbf{x}_{n}):\mathbb{R}^M\rightarrow\mathbb{R}^N$ are differntiable
+function of $\mathbf{x}_n$,
+$Q_n(\mathbf{x}_n):\mathbb{R}^M\rightarrow P_M$ and
+$R_n(\mathbf{x}_n):\mathbb{R}^M\rightarrow P_N$\footnote{$P_M$ and $P_N$ are
+the spaces of positive definite matrices of size $M\times M$ and $N\times N$,
+respectively.}.
+
+\section{Extended Kalman Filter (EKF) inference algorithm}
+\label{sec:ekfInference}
+
+The EKF inference algorithm linearises the state and observation equations of
+the EKF model (Eqs.~\ref{eq:state} and~\ref{eq:observation}) and then applies
+Kalman filter inference to the resulting linearised model.
+
+Define the Jacobian matrices
+
+\begin{align*}
+    \dot{A}_n=\left.\frac{\partial\ A_n(\mathbf{x}_n)}{\partial\mathbf{x}_n}\right|_{\mathbf{x}_n=\mathbf{x}_{n|n}}\qquad\dot{C}_n=\left.\frac{\partial\ C_n(\mathbf{x}_n)}{\partial\mathbf{x}_n}\right|_{\mathbf{x}_n=\mathbf{x}_{n|n-1}}
+\end{align*}
+
+\noindent then the EKF inference algorithm is
+
+\begin{alignat*}{2}
+    \mathbf{x}_{0|0}&=\mathbf{m}_0&&\text{init filtered mean}\\
+    P_{0|0}&=V_0&&\text{init filtered covariance}\\
+    \mathbf{x}_{n+1|n}&=A(\mathbf{x}_{n|n})\quad&&\text{prediction mean}\\
+    P_{n+1|n}&=\dot{A}_nP_{n|n}\dot{A}_n^\intercal+Q(\mathbf{x}_{n|n})\quad&&\text{prediction covariance}\\
+    \mathbf{y}_{n|n-1}&=C_n(\mathbf{x}_{n|n-1})\quad&&\text{predicted observation}\\
+    \tilde{\mathbf{y}}_n&=\textcolor{red}{\mathbf{y}_n}-\mathbf{y}_{n|n-1}\quad&&\text{residual}\\
+    S_n&=\dot{C}_nP_{n|n-1}\dot{C}_n^\intercal+R(\mathbf{x}_{n|n-1})\quad&&\text{residual covariance}\\
+    \mathbf{x}_{n|n}&=\mathbf{x}_{n|n-1}+K_n\tilde{\mathbf{y}}_n\quad&&\text{filtering mean}\\
+    K_n&=P_{n|n-1}\dot{C}_n^\intercal S_n^{-1}&&\text{Kalman gain}\\
+    P_{n|n}&=(I_M-K_n\dot{C}_n)P_{n|n-1}&&\text{filtering covariance}
+\end{alignat*}
+
+\bibliographystyle{apalike}
+\bibliography{linearDynamicalSystems}
+
+\end{document}
