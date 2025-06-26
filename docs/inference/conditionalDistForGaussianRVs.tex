@@ -1,0 +1,86 @@
+\begin{lemma}
+
+    Let $\mathbf{x}$ and $\mathbf{y}$ be jointly Gaussian distributed random
+    vectors with
+
+    \begin{align*}
+        E\left\{\left[\begin{array}{c}
+                          \mathbf{x}\\
+                          \mathbf{y}
+                      \end{array}\right]\right\}&=\left[\begin{array}{c}
+                                                           \boldsymbol{\mu}_x\\
+                                                           \boldsymbol{\mu}_y
+                                                       \end{array}\right]\\
+        \text{Cov}\left\{\left[\begin{array}{c}
+                                   \mathbf{x}\\
+                                   \mathbf{y}
+                               \end{array}\right]\right\}&=\left[\begin{array}{cc}
+                                                                     \Sigma_{xx} & \Sigma_{xy} \\
+                                                                     \Sigma_{yx} & \Sigma_{yy} \\
+                                                                  \end{array}\right]
+    \end{align*}
+
+    \noindent where $\Sigma_{yy}$ is assumed to be non-singular.
+    %
+    Then the conditional distribution of $\mathbf{x}$ given $\mathbf{y}$ is
+    Gaussian with mean vector
+
+    \begin{align}
+        \text{E}\{\mathbf{x}|\mathbf{y}\}=\boldsymbol{\mu}_x+\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)\label{eq:conditionalMean}
+    \end{align}
+
+    \noindent and covariance matrix
+
+    \begin{align}
+        \text{Cov}\{\mathbf{x}|\mathbf{y}\}=\Sigma_{xx}-\Sigma_{xy}\Sigma_{yy}^{-1}\Sigma_{yx}\label{eq:conditionalCov}
+    \end{align}
+
+    \label{lemma:conditionalGaussians}
+
+\end{lemma}
+
+\begin{proof}
+    Let
+
+    \begin{align}
+        \mathbf{z}=\mathbf{x}-\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)\label{eq:z}
+    \end{align}
+
+    Since $(\mathbf{x},\mathbf{y})$ are jointly Gaussian, and $(\mathbf{z},\mathbf{y})$
+    is an affine transformation of $(\mathbf{x},\mathbf{y})$, then
+    $(\mathbf{z},\mathbf{y})$ are jointly Gaussian.
+
+    We have
+
+    \begin{align}
+        \text{E}\{\mathbf{z}\}&=E\{\mathbf{x}\}=\boldsymbol{\mu}_x\nonumber\\
+        \mathbf{z}-\boldsymbol{\mu}_z&=\left(\mathbf{x}-\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)\right)-\boldsymbol{\mu}_x=(\mathbf{x}-\boldsymbol{\mu}_x)-\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)\nonumber\\
+        \text{Cov}\{\mathbf{z}\}&=\text{E}\{(\mathbf{z}-\boldsymbol{\mu}_z)(\mathbf{z}-\boldsymbol{\mu}_z)^\intercal\}\nonumber\\
+                                &=\text{E}\{\left[(\mathbf{x}-\boldsymbol{\mu}_x)-\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)\right]\left[(\mathbf{x}-\boldsymbol{\mu}_x)-\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)\right]^\intercal\}\nonumber\\
+                                &=\text{E}\{(\mathbf{x}-\boldsymbol{\mu}_x)(\mathbf{x}-\boldsymbol{\mu}_x)^\intercal\}-\text{E}\{(\mathbf{x}-\boldsymbol{\mu}_x)(\mathbf{y}-\boldsymbol{\mu}_y)^\intercal\}\Sigma_{yy}^{-1}\Sigma_{xy}-\Sigma_{xy}\Sigma_{yy}^{-1}\text{E}\{(\mathbf{y}-\boldsymbol{\mu}_y))(\mathbf{x}-\boldsymbol{\mu}_x)^\intercal\}+\nonumber\\
+                                &\quad \Sigma_{xy}\Sigma_{yy}^{-1}\text{E}\{(\mathbf{y}-\boldsymbol{\mu}_y)(\mathbf{y}-\boldsymbol{\mu}_y)^\intercal\}\Sigma_{yy}^{-1}\Sigma_{xy}\nonumber\\
+                                &=\Sigma_{xx}-\Sigma_{xy}\Sigma_{yy}^{-1}\Sigma_{yx}-\Sigma_{xy}\Sigma_{yy}^{-1}\Sigma_{yx}+\Sigma_{xy}\Sigma_{yy}^{-1}\Sigma_{yy}\Sigma_{yy}^{-1}\Sigma_{yx}\nonumber\\
+                                &=\Sigma_{xx}-\Sigma_{xy}\Sigma_{yy}^{-1}\Sigma_{yx}\nonumber\\
+        \text{Cov}\{\mathbf{y},\mathbf{z}\}&=\text{E}\{(\mathbf{y}-\boldsymbol{\mu}_y)(\mathbf{z}-\boldsymbol{\mu}_z)^\intercal\}\nonumber\\
+                                &=\textbf{E}\{(\mathbf{y}-\boldsymbol{\mu}_y)((\mathbf{x}-\boldsymbol{\mu}_x)-\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y))^\intercal\}\nonumber\\
+                                &=\Sigma_{yx}-\Sigma_{yy}\Sigma_{yy}^{-1}\Sigma_{yx}=0\label{eq:covYZ}
+    \end{align}
+
+    Because $(\mathbf{y},\mathbf{z})$ are uncorrelated (Eq.~\ref{eq:covYZ}) and
+    jointly Gaussian, they are independent. Thus,
+    $\text{E}\{\mathbf{z}|\mathbf{y}\}=\text{E}\{\mathbf{z}\}$ and
+    $\text{Cov}\{\mathbf{z}|\mathbf{y}\}=\text{Cov}\{\mathbf{z}\}$.
+
+    From Eq.~\ref{eq:z},
+    $\mathbf{x}=\mathbf{z}+\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)$.
+    Then
+
+    \begin{align}
+        \text{E}\{\mathbf{x}|\mathbf{y}\}&=\text{E}\{\mathbf{z}|\mathbf{y}\}+\text{E}\{\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)|\mathbf{y}\}\nonumber\\
+                                         &=\text{E}\{\mathbf{z}\}+\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)\nonumber\\
+                                         &=\boldsymbol{\mu}_x+\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)\nonumber\\
+        \text{Cov}\{\mathbf{x}|\mathbf{y}\}&=\text{Cov}\{\mathbf{z}+\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)|\mathbf{y}\}=\text{Cov}\{\mathbf{z}|\mathbf{y}\}\footnotemark[12]\\
+                                           &=\text{Cov}\{\mathbf{z}\}=\Sigma_{xx}-\Sigma_{xy}\Sigma_{yy}^{-1}\Sigma_{yx}\nonumber
+    \end{align}
+    \footnotetext[12]{when conditioning on $\mathbf{y}$, the term $\Sigma_{xy}\Sigma_{yy}^{-1}(\mathbf{y}-\boldsymbol{\mu}_y)$ is a constant, and constants are irrelevant when computing covariances.}
+\end{proof}
