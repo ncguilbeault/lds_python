@@ -14,9 +14,9 @@
         \hat{\mathbf{y}}_{n|n-1}&\triangleq E\{\mathbf{y}_n|\mathbf{y}_1,\ldots,\mathbf{y}_{n-1}\}=B_n\mathbf{x}_{n|n-1}&&\text{predicted observation}\label{eq:ytGtm1}\\
         \mathbf{z}_n&\triangleq\mathbf{y}_n-\hat{\mathbf{y}}_{n|n-1}&&\text{residual}\nonumber\\
         S_n&\triangleq \text{Cov}\{\mathbf{z}_n|\mathbf{y}_1,\ldots,\mathbf{y}_{n-1}\}=B_nP_{n|n-1}B_n^\intercal+R_n\quad&&\text{residual covariance}\label{eq:St}\\
+        \mathbf{K}_n&=P_{n|n-1}B_n^\intercal S_n^{-1}&&\text{Kalman gain}\label{eq:Kt}\\
         \mathbf{x}_{n|n}&=\mathbf{x}_{n|n-1}+K_n\mathbf{z}_n&&\text{filtering mean}\label{eq:xtGt}\\
-        \mathbf{P}_{n|n}&=(I-K_nB_n)P_{n|n-1}&&\text{filtering covariance}\label{eq:PtGt}\\
-        \mathbf{K}_n&=P_{n|n-1}B_n^\intercal S_n^{-1}&&\text{Kalman gain}\label{eq:Kt}
+        \mathbf{P}_{n|n}&=(I-K_nB_n)P_{n|n-1}&&\text{filtering covariance}\label{eq:PtGt}
     \end{alignat}
 
 \end{theorem}
