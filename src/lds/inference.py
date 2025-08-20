@@ -242,7 +242,7 @@ def filterLDS_SS_withMissingValues_torch(y, B, Q, m0, V0, Z, R):
     :param: R: observations covariance matrix
     :type: R: numpy matrix (NxN)
 
-    :return:  {xnn1, Vnn1, xnn, Vnn, innov, K, Sn, logLike}: xnn1 and Vnn1 (predicted means, MxT, and covariances, MxMxT), xnn and Vnn (filtered means, MxT, and covariances, MxMxT), innov (innovations, NxT), K (Kalman gain matrices, MxNxT), Sn (innovations covariance matrices, NxNxT), logLike (data loglikelihood, float).
+    :return:  {xnn1, Pnn1, xnn, Pnn, innov, K, Sn, logLike}: xnn1 and Pnn1 (predicted means, MxT, and covariances, MxMxT), xnn and Pnn (filtered means, MxT, and covariances, MxMxT), innov (innovations, NxT), K (Kalman gain matrices, MxNxT), Sn (innovations covariance matrices, NxNxT), logLike (data loglikelihood, float).
     :rtype: dictionary
 
     """
@@ -260,73 +260,67 @@ def filterLDS_SS_withMissingValues_torch(y, B, Q, m0, V0, Z, R):
     M = B.shape[0]
     N = y.shape[1]
     P = y.shape[0]
-    xnn1 = torch.empty(size=[M, 1], dtype=torch.double)
     xnn1_h = torch.empty(size=[M, 1, N], dtype=torch.double)
-    Vnn1 = torch.empty(size=[M, M], dtype=torch.double)
-    Vnn1_h = torch.empty(size=[M, M, N], dtype=torch.double)
-    xnn = torch.empty(size=[M, 1], dtype=torch.double)
+    Pnn1_h = torch.empty(size=[M, M, N], dtype=torch.double)
     xnn_h = torch.empty(size=[M, 1, N], dtype=torch.double)
-    Vnn = torch.empty(size=[M, M], dtype=torch.double)
-    Vnn_h = torch.empty(size=[M, M, N], dtype=torch.double)
-    innov = torch.empty(size=[P, 1], dtype=torch.double)
+    Pnn_h = torch.empty(size=[M, M, N], dtype=torch.double)
     innov_h = torch.empty(size=[P, 1, N], dtype=torch.double)
-    Sn = torch.empty(size=[P, P], dtype=torch.double)
     Sn_h = torch.empty(size=[P, P, N], dtype=torch.double)
 
     # k==0
     xnn1 = B @ m0
-    Vnn1 = B @ V0 @ B.T + Q
-    Stmp = Z @ Vnn1 @ Z.T + R
+    Pnn1 = B @ V0 @ B.T + Q
+    Stmp = Z @ Pnn1 @ Z.T + R
     Sn = (Stmp + torch.transpose(Stmp, 0, 1)) / 2
     Sinv = torch.linalg.inv(Sn)
-    K = Vnn1 @ Z.T @ Sinv
+    K = Pnn1 @ Z.T @ Sinv
     innov = y[:, 0] - (Z @  xnn1).squeeze()
     xnn = xnn1 + K @ innov
-    Vnn = Vnn1 - K @ Z @ Vnn1
+    Pnn = Pnn1 - K @ Z @ Pnn1
     logLike = -N*P*math.log(2*math.pi) - torch.logdet(Sn) - \
         innov.T @ Sinv @ innov
     if torch.isnan(logLike):
         raise RuntimeError("obtained nan log likelihood")
 
     xnn1_h[:, :, 0] = torch.unsqueeze(xnn1, 1)
-    Vnn1_h[:, :, 0] = Vnn1
+    Pnn1_h[:, :, 0] = Pnn1
     xnn_h[:, :, 0] = torch.unsqueeze(xnn, 1)
-    Vnn_h[:, :, 0] = Vnn
+    Pnn_h[:, :, 0] = Pnn
     innov_h[:, :, 0] = torch.unsqueeze(innov, 1)
     Sn_h[:, :, 0] = Sn
 
     # k>1
     for k in range(1, N):
         xnn1 = B @ xnn
-        Vnn1 = B @ Vnn @ B.T + Q
+        Pnn1 = B @ Pnn @ B.T + Q
         if(torch.any(torch.isnan(y[:, k]))):
             xnn = xnn1
-            Vnn = Vnn1
+            Pnn = Pnn1
         else:
-            Stmp = Z @ Vnn1 @ Z.T + R
+            Stmp = Z @ Pnn1 @ Z.T + R
             Sn = (Stmp + Stmp.T)/2
             Sinv = torch.linalg.inv(Sn)
-            K = Vnn1 @ Z.T @ Sinv
+            K = Pnn1 @ Z.T @ Sinv
             innov = y[:, k] - (Z @ xnn1).squeeze()
             xnn = xnn1 + K @ innov
-            Vnn = Vnn1 - K @ Z @ Vnn1
+            Pnn = Pnn1 - K @ Z @ Pnn1
         logLike = logLike-torch.logdet(Sn) -\
             innov.T @ Sinv @ innov
         if torch.isnan(logLike):
             raise ValueError("obtained nan log likelihood")
         xnn1_h[:, :, k] = torch.unsqueeze(xnn1, 1)
-        Vnn1_h[:, :, k] = Vnn1
+        Pnn1_h[:, :, k] = Pnn1
         xnn_h[:, :, k] = torch.unsqueeze(xnn, 1)
-        Vnn_h[:, :, k] = Vnn
+        Pnn_h[:, :, k] = Pnn
         innov_h[:, :, k] = torch.unsqueeze(innov, 1)
         Sn_h[:, :, k] = Sn
     logLike = 0.5 * logLike
-    answer = {"xnn1": xnn1_h, "Vnn1": Vnn1_h, "xnn": xnn_h, "Vnn": Vnn_h,
+    answer = {"xnn1": xnn1_h, "Pnn1": Pnn1_h, "xnn": xnn_h, "Pnn": Pnn_h,
               "innov": innov_h, "KN": K, "Sn": Sn_h, "logLike": logLike}
     return answer
 
 
-def logLikeLDS_SS_withMissingValues_torch(y, B, Q, m0, V0, Z, R):
+def logLikeLDS_withMissingValues_torch(y, B, Q, m0, V0, Z, R):
     """ Kalman filter implementation of the algorithm described in Shumway and
     Stoffer 2006.
 
@@ -369,61 +363,228 @@ def logLikeLDS_SS_withMissingValues_torch(y, B, Q, m0, V0, Z, R):
     if m0.ndim != 1:
         raise ValueError("mean must be 1 dimensional")
 
-    # N: number of observations
+    # T: number of observations
     # M: dim state space
     # P: dim observations
     M = B.shape[0]
-    N = y.shape[1]
-    P = y.shape[0]
-    xnn1 = torch.empty(size=[M, 1], dtype=torch.double)
-    Vnn1 = torch.empty(size=[M, M], dtype=torch.double)
-    xnn = torch.empty(size=[M, 1], dtype=torch.double)
-    Vnn = torch.empty(size=[M, M], dtype=torch.double)
-    innov = torch.empty(size=[P, 1], dtype=torch.double)
-    Sn = torch.empty(size=[P, P], dtype=torch.double)
+    T = y.shape[1]
+    N = y.shape[0]
 
-    # k==0
-    xnn1 = B @ m0
-    Vnn1 = B @ V0 @ B.T + Q
-    Stmp = Z @ Vnn1 @ Z.T + R
-    Sn = (Stmp + torch.transpose(Stmp, 0, 1)) / 2
-    Sinv = torch.linalg.inv(Sn)
-    K = Vnn1 @ Z.T @ Sinv
-    innov = y[:, 0] - (Z @  xnn1).squeeze()
-    xnn = xnn1 + K @ innov
-    Vnn = Vnn1 - K @ Z @ Vnn1
-    logLike = -N*P*math.log(2*math.pi) - torch.logdet(Sn) - \
-        innov.T @ Sinv @ innov
-    if torch.isnan(logLike):
-        raise RuntimeError("obtained nan log likelihood")
-
-    # k>1
-    for k in range(1, N):
+    xnn = m0
+    Pnn = V0
+    logLike = 0.0
+    log2Pi = torch.log(torch.tensor(2.0 * torch.pi))
+    for k in range(T):
         xnn1 = B @ xnn
-        Vnn1 = B @ Vnn @ B.T + Q
-        # print(Vnn1)
-        # Vnn1.register_hook(print)  # This will print the gradient when it's computed.
+        Pnn1 = B @ Pnn @ B.T + Q
+        # print(Pnn1)
+        # Pnn1.register_hook(print)  # This will print the gradient when it's computed.
 
         if(torch.any(torch.isnan(y[:, k]))):
             xnn = xnn1
-            Vnn = Vnn1
+            Pnn = Pnn1
         else:
-            Stmp = Z @ Vnn1 @ Z.T + R
+            Stmp = Z @ Pnn1 @ Z.T + R
             Sn = (Stmp + Stmp.T)/2
             Sinv = torch.linalg.inv(Sn)
-            K = Vnn1 @ Z.T @ Sinv
+            K = Pnn1 @ Z.T @ Sinv
             innov = y[:, k] - (Z @ xnn1).squeeze()
             xnn = xnn1 + K @ innov
-            Vnn = Vnn1 - K @ Z @ Vnn1
-        logLike = logLike-torch.logdet(Sn) -\
-            innov.T @ Sinv @ innov
+            Pnn = Pnn1 - K @ Z @ Pnn1
+        logLike += -0.5 * (N * log2Pi + torch.logdet(Sn) +
+                           innov.T @ torch.linalg.solve(Sn, innov))
         if torch.isnan(logLike):
             raise ValueError("obtained nan log likelihood")
-    logLike = 0.5 * logLike
     return logLike
 
 
-def filterEKF_withMissingValues_torch(y, B, Bdot, Q, m0, V0, Z, Zdot, R):
+def lds_forecast(xnn, Pnn, B, Q, h):
+    """
+    Forecasts the mean and covariance of a Kalman filter state at horizon h.
+
+    Args:
+        xnn (numpy array or torch tensor): Filtered state mean at time n, shape (state_dim,)
+        Pnn (numpy array or torch tensor): Filtered state covariance at time n, shape (state_dim, state_dim)
+        B (numpy or torch matrix): State transition matrix, shape (state_dim, state_dim)
+        Q (numpy or torch matrix): Process noise covariance matrix, shape (state_dim, state_dim)
+        h (int): Forecast horizon
+
+    Returns:
+        x_pred (Tensor): Forecasted mean at time n+h
+        P_pred (Tensor): Forecasted covariance at time n+h
+    """
+    x_pred = xnn
+    P_pred = Pnn
+
+    for _ in range(h):
+        P_pred = B @ P_pred @ B.T + Q
+        x_pred = B @ x_pred
+
+    return x_pred, P_pred
+
+
+def lds_forecast_batch(xnn, Pnn, B, Q, m0, V0, h):
+    """
+
+	Forecasts the mean and covariance of a batch of Kalman filter states at horizon h. The first forecasted sample corresponds to sample time h-1 and the last forecasted sample correspond to sample time N+h-1; thus this function return N+1 samples.
+
+    :param: xnn: filtered state mean at time n
+    :type: xnn: numpy array or torch tensor, shape (state_dim,)
+
+    :param: Pnn: filtered state covariance at time n
+    :type: Pnn: numpy array or torch tensor, shape (state_dim, state_dim)
+
+    :param: B: state transition matrix
+    :type: B: numpy or torch matrix, shape (state_dim, state_dim)
+
+    :param: Q: process noise covariance matrix
+    :type: Q: numpy or torch matrix, shape (state_dim, state_dim)
+
+    :param: h: forecast horizon
+    :type: h: int
+
+    :return:  (x_pred, P_pred): tuple containing the forecasted mean and covariance at time n+h
+    :rtype: tuple
+    """
+
+    N = xnn.shape[2]
+    x_pred = np.empty(shape=(xnn.shape[0], 1, xnn.shape[2]+1), dtype=np.double)
+    P_pred = np.empty(shape=(Pnn.shape[0], Pnn.shape[1], Pnn.shape[2]+1), dtype=np.double)
+    x = m0
+    P = V0
+    for n in range(N):
+        x_pred[:, 0, n], P_pred[:, :, n] = lds_forecast(
+            h=h, xnn=x, Pnn=P, B=B, Q=Q)
+        x = xnn[:, 0, n]
+        P = Pnn[:, :, n]
+    x_pred[:, 0, N], P_pred[:, :, N] = lds_forecast(h=h, xnn=x, Pnn=P, B=B, Q=Q)
+    return x_pred, P_pred
+
+
+def log_like_observations_given_forecasts_lds(h, y, x_pred, P_pred, Z, R):
+    first_forecasted_sample = h-1
+    T = y.shape[1]
+    N = y.shape[0]
+
+    # align measurements and forecasts
+    y = y[:, first_forecasted_sample:]
+    x_pred = x_pred[:, :, :(T-first_forecasted_sample)]
+    P_pred = P_pred[:, :, :(T-first_forecasted_sample)]
+
+    T = y.shape[1]
+
+    # compute log likelihood
+    N_log_2pi = N * np.log(2*np.pi)
+    log_like = 0.0
+    num_terms = 0
+    for n in range(T):
+        if any(np.isnan(y[:, n])):
+            continue
+        yn_pred = Z @ x_pred[:, 0, n]
+        innov = y[:, n] - yn_pred
+        S = Z @ P_pred[:, :, n] @ Z.T + R
+        mahal = innov.T @ np.linalg.solve(S, innov)
+        sign, log_det = np.linalg.slogdet(S)
+        if sign != 1:
+            raise ValueError("S is not positive definite")
+        log_like += N_log_2pi + log_det + mahal
+        num_terms += 1
+    log_like /= -2 * num_terms
+    return log_like
+
+
+def log_like_observations_given_forecasts_ekf(h, y, x_pred, P_pred, Z, Zdot, R):
+    first_forecasted_sample = h-1
+    T = y.shape[1]
+    N = y.shape[0]
+
+    # align measurements and forecasts
+    y = y[:, first_forecasted_sample:]
+    x_pred = x_pred[:, :, :(T-first_forecasted_sample)]
+    P_pred = P_pred[:, :, :(T-first_forecasted_sample)]
+
+    T = y.shape[1]
+
+    # compute log likelihood
+    N_log_2pi = N * np.log(2*np.pi)
+    log_like = 0.0
+    num_terms = 0
+    for n in range(T):
+        if any(np.isnan(y[:, n])):
+            continue
+        yn_pred = Z(x_pred[:, 0, n]).numpy()
+        S_n = (Zdot(x_pred[:, 0, n]) @ P_pred[:, :, n] @ Zdot(x_pred[:, 0, n]).T + R(x_pred[:, 0, n])).numpy()
+        innov_n = y[:, n] - yn_pred
+        mahal_n = innov_n.T @ np.linalg.solve(S_n, innov_n)
+        sign_n, log_det_n = np.linalg.slogdet(S_n)
+        if sign_n != 1:
+            raise ValueError("S is not positive definite")
+        log_like += N_log_2pi + log_det_n + mahal_n
+        num_terms += 1
+    log_like /= -2 * num_terms
+    return log_like
+
+
+def ekf_forecast(xnn, Pnn, B, Bdot, Q, h):
+    """
+    Forecasts the mean and covariance of an EKF filter state at horizon h.
+
+    N: dimensionality of observations
+
+    M: dimnensionality of state
+
+    T: number of observations
+
+    :param: xnn: filtered state mean at time n
+    :type: xnn: :math:`\Re^{N\\times 1\\times T}`
+
+    :param: Pnn: filtered state covariance at time n
+    :type: Pnn: :math:`\Re^{N\\times N\\times T}`
+
+    :param: B: state transition function
+    :type: B: :math:`\Re^M\\rightarrow\Re^M`
+
+    :param: Bdot: Jacobian of state transition function
+    :type: Bdot: :math:`\Re^M\\rightarrow\Re^{M\\times M}`
+
+    :param: Q: state noise covariance function
+    :type: Q: :math:`\Re^M\\rightarrow\Re^{M\\times M}`
+
+    :param: h: forecasting horizon
+    :type: h: int
+
+    :return:  (x_pred, P_pred): tuple containing the forecasted mean and covariance at time n+h
+    :rtype: tuple
+
+    """
+    x_pred = xnn
+    P_pred = Pnn
+
+    for _ in range(h):
+        P_pred = Bdot(x_pred) @ P_pred @ Bdot(x_pred).T + Q(x_pred)
+        x_pred = B(x_pred)
+
+    return x_pred, P_pred
+
+
+def ekf_forecast_batch(xnn, Pnn, B, Bdot, Q, m0, V0, h):
+    N = xnn.shape[2]
+    x_pred = np.empty(shape=(xnn.shape[0], 1, xnn.shape[2]+1), dtype=np.double)
+    P_pred = np.empty(shape=(Pnn.shape[0], Pnn.shape[1], Pnn.shape[2]+1), dtype=np.double)
+    x = m0
+    P = V0
+    for n in range(N):
+        x_pred[:, 0, n], P_pred[:, :, n] = ekf_forecast(
+            xnn=x, Pnn=P, B=B, Bdot=Bdot, Q=Q, h=h)
+        x = xnn[:, 0, n]
+        P = Pnn[:, :, n]
+    x_pred[:, 0, N], P_pred[:, :, N] = ekf_forecast(
+        xnn=x, Pnn=P, B=B, Bdot=Bdot, Q=Q, h=h)
+    return x_pred, P_pred
+
+
+def filterEKF_withMissingValues_torch(y, B, Bdot, Q, m0, V0, Z, Zdot, R,
+                                      Sn_reg=1e-5):
     """ Extended Kalman filter implementation of the algorithm described in
     Chapter 10 of Durbin and Koopman 2012.
 
@@ -434,33 +595,33 @@ def filterEKF_withMissingValues_torch(y, B, Bdot, Q, m0, V0, Z, Zdot, R):
     T: number of observations
 
     :param: y: time series to be smoothed
-    :type: y: numpy array (NxT)
+    :type: y: :math:`\Re^{N\\times T}`
 
     :param: B: state transition function
-    :type: B: :math:`\Re^M\rightarrow\Re^M`
+    :type: B: :math:`\Re^M\\rightarrow\Re^M`
 
     :param: Bdot: Jacobian of state transition function
-    :type: Bdot: :math:`\Re^M\rightarrow\Re^{M\times M}`
+    :type: Bdot: :math:`\Re^M\\rightarrow\Re^{M\\times M}`
 
     :param: Q: state noise covariance function
-    :type: Q: :math:`\Re^M\rightarrow\Re^{M\times M}`
+    :type: Q: :math:`\Re^M\\rightarrow\Re^{M\\times M}`
 
     :param: m0: initial state mean
-    :type: m0: one-dimensional numpy array (M)
+    :type: m0: :math:`\Re^{M}`
 
     :param: V0: initial state covariance
-    :type: V0: numpy matrix (MxM)
+    :type: V0: :math:`\Re^{M\\times M}`
 
     :param: Z: state to observation function
-    :type: Z: :math:`\Re^M\rightarrow\Re^N`
+    :type: Z: :math:`\Re^M\\rightarrow\Re^N`
 
     :param: Zdot: Jacobian of state to observation function
-    :type: Zdot: :math:`\Re^M\rightarrow\Re^{N\times M}`
+    :type: Zdot: :math:`\Re^M\\rightarrow\Re^{N\\times M}`
 
     :param: R: observations covariance function
-    :type: R: :math:`\Re^M\rightarrow\Re^{N\times N}`
+    :type: R: :math:`\Re^M\\rightarrow\Re^{N\\times N}`
 
-    :return:  {xnn1, Vnn1, xnn, Vnn, innov, K, Sn, logLike}: xnn1 and Vnn1 (predicted means, MxT, and covariances, MxMxT), xnn and Vnn (filtered means, MxT, and covariances, MxMxT), innov (innovations, NxT), K (Kalman gain matrices, MxNxT), Sn (innovations covariance matrices, NxNxT), logLike (data loglikelihood, float).
+    :return:  {xnn1, Pnn1, xnn, Pnn, innov, K, Sn, logLike}: xnn1 and Pnn1 (predicted means, MxT, and covariances, MxMxT), xnn and Pnn (filtered means, MxT, and covariances, MxMxT), innov (innovations, NxT), K (Kalman gain matrices, MxNxT), Sn (innovations covariance matrices, NxNxT), logLike (data loglikelihood, float).
     :rtype: dictionary
 
     """
@@ -478,70 +639,128 @@ def filterEKF_withMissingValues_torch(y, B, Bdot, Q, m0, V0, Z, Zdot, R):
     M = m0.shape[0]
     T = y.shape[1]
     N = y.shape[0]
-    xnn1 = torch.empty(size=[M, 1], dtype=torch.double)
+
     xnn1_h = torch.empty(size=[M, 1, T], dtype=torch.double)
-    Vnn1 = torch.empty(size=[M, M], dtype=torch.double)
-    Vnn1_h = torch.empty(size=[M, M, T], dtype=torch.double)
-    xnn = torch.empty(size=[M, 1], dtype=torch.double)
+    Pnn1_h = torch.empty(size=[M, M, T], dtype=torch.double)
     xnn_h = torch.empty(size=[M, 1, T], dtype=torch.double)
-    Vnn = torch.empty(size=[M, M], dtype=torch.double)
-    Vnn_h = torch.empty(size=[M, M, T], dtype=torch.double)
-    innov = torch.empty(size=[N, 1], dtype=torch.double)
+    Pnn_h = torch.empty(size=[M, M, T], dtype=torch.double)
     innov_h = torch.empty(size=[N, 1, T], dtype=torch.double)
-    Sn = torch.empty(size=[N, N], dtype=torch.double)
     Sn_h = torch.empty(size=[N, N, T], dtype=torch.double)
 
-    # k==0
-    xnn1 = B(m0)
-    Vnn1 = Bdot(m0) @ V0 @ Bdot(m0).T + Q(m0)
-    Stmp = Zdot(xnn1) @ Vnn1 @ Zdot(xnn1).T + R(xnn1)
-    Sn = (Stmp + torch.transpose(Stmp, 0, 1)) / 2
-    Sinv = torch.linalg.inv(Sn)
-    K = Vnn1 @ Zdot(xnn1).T @ Sinv
-    innov = y[:, 0] - Z(xnn1)
-    xnn = xnn1 + K @ innov
-    Vnn = Vnn1 - K @ Zdot(xnn1) @ Vnn1
-    logLike = -T*N*math.log(2*math.pi) - torch.logdet(Sn) - \
-        innov.T @ Sinv @ innov
-    if torch.isnan(logLike):
-        raise RuntimeError("obtained nan log likelihood")
+    xnn = m0
+    Pnn = V0
+    logLike = 0.0
+    log2Pi = torch.log(torch.tensor(2.0 * torch.pi))
 
-    xnn1_h[:, :, 0] = torch.unsqueeze(xnn1, 1)
-    Vnn1_h[:, :, 0] = Vnn1
-    xnn_h[:, :, 0] = torch.unsqueeze(xnn, 1)
-    Vnn_h[:, :, 0] = Vnn
-    innov_h[:, :, 0] = torch.unsqueeze(innov, 1)
-    Sn_h[:, :, 0] = Sn
-
-    # k>1
-    for k in range(1, T):
+    for k in range(T):
         xnn1 = B(xnn)
-        Vnn1 = Bdot(xnn) @ Vnn @ Bdot(xnn).T + Q(xnn)
+        Pnn1 = Bdot(xnn) @ Pnn @ Bdot(xnn).T + Q(xnn)
         if(torch.any(torch.isnan(y[:, k]))):
             xnn = xnn1
-            Vnn = Vnn1
+            Pnn = Pnn1
         else:
-            Stmp = Zdot(xnn1) @ Vnn1 @ Zdot(xnn1).T + R(xnn1)
-            Sn = (Stmp + Stmp.T)/2
+            Stmp = Zdot(xnn1) @ Pnn1 @ Zdot(xnn1).T + R(xnn1)
+            Sn = (Stmp + Stmp.T)/2 + Sn_reg * torch.eye(N)
             Sinv = torch.linalg.inv(Sn)
-            K = Vnn1 @ Zdot(xnn1).T @ Sinv
+            K = Pnn1 @ Zdot(xnn1).T @ Sinv
             innov = y[:, k] - Z(xnn1)
             xnn = xnn1 + K @ innov
-            Vnn = Vnn1 - K @ Zdot(xnn1) @ Vnn1
-        logLike = logLike-torch.logdet(Sn) -\
-            innov.T @ Sinv @ innov
+            Pnn = Pnn1 - K @ Zdot(xnn1) @ Pnn1
+        logLike += -0.5 * (N * log2Pi + torch.logdet(Sn) +
+                           innov.T @ torch.linalg.solve(Sn, innov))
         if torch.isnan(logLike):
             raise ValueError("obtained nan log likelihood")
         xnn1_h[:, :, k] = torch.unsqueeze(xnn1, 1)
-        Vnn1_h[:, :, k] = Vnn1
+        Pnn1_h[:, :, k] = Pnn1
         xnn_h[:, :, k] = torch.unsqueeze(xnn, 1)
-        Vnn_h[:, :, k] = Vnn
+        Pnn_h[:, :, k] = Pnn
         innov_h[:, :, k] = torch.unsqueeze(innov, 1)
         Sn_h[:, :, k] = Sn
-    logLike = 0.5 * logLike
-    answer = {"xnn1": xnn1_h, "Vnn1": Vnn1_h, "xnn": xnn_h, "Vnn": Vnn_h,
+    answer = {"xnn1": xnn1_h, "Pnn1": Pnn1_h, "xnn": xnn_h, "Pnn": Pnn_h,
               "innov": innov_h, "KN": K, "Sn": Sn_h, "logLike": logLike}
     return answer
+
+
+def logLikeEKF_withMissingValues_torch(y, B, Bdot, Q, m0, V0, Z, Zdot, R,
+                                       Sn_reg=1e-5):
+    """ Calculation of the log-likelihood for the extended Kalman filter model.
+
+    N: dimensionality of observations
+
+    M: dimnensionality of state
+
+    T: number of observations
+
+    :param: y: time series to be smoothed
+    :type: y: :math:`\Re^{N\\times T}`
+
+    :param: B: state transition function
+    :type: B: :math:`\Re^M\\rightarrow\Re^M`
+
+    :param: Bdot: Jacobian of state transition function
+    :type: Bdot: :math:`\Re^M\\rightarrow\Re^{M\\times M}`
+
+    :param: Q: state noise covariance function
+    :type: Q: :math:`\Re^M\\rightarrow\Re^{M\\times M}`
+
+    :param: m0: initial state mean
+    :type: m0: :math:`\Re^{M}`
+
+    :param: V0: initial state covariance
+    :type: V0: :math:`\Re^{M\\times M}`
+
+    :param: Z: state to observation function
+    :type: Z: :math:`\Re^M\\rightarrow\Re^N`
+
+    :param: Zdot: Jacobian of state to observation function
+    :type: Zdot: :math:`\Re^M\\rightarrow\Re^{N\\times M}`
+
+    :param: R: observations covariance function
+    :type: R: :math:`\Re^M\\rightarrow\Re^{N\\times N}`
+
+    :return:  {xnn1, Pnn1, xnn, Pnn, innov, K, Sn, logLike}: xnn1 and Pnn1 (predicted means, MxT, and covariances, MxMxT), xnn and Pnn (filtered means, MxT, and covariances, MxMxT), innov (innovations, NxT), K (Kalman gain matrices, MxNxT), Sn (innovations covariance matrices, NxNxT), logLike (data loglikelihood, float).
+    :rtype: dictionary
+
+    """
+
+    import torch
+    if torch.any(torch.isnan(y[:, 0])) or torch.any(torch.isnan(y[:, -1])):
+        raise ValueError("The first or last observation cannot contain nan")
+
+    if m0.ndim != 1:
+        raise ValueError("mean must be 1 dimensional")
+
+    # T: number of observations
+    # M: dim state space
+    # N: dim observations
+    M = m0.shape[0]
+    T = y.shape[1]
+    N = y.shape[0]
+
+    xnn = m0
+    Pnn = V0
+    logLike = 0.0
+    log2Pi = torch.log(torch.tensor(2.0 * torch.pi))
+    for k in range(T):
+        xnn1 = B(xnn)
+        Pnn1 = Bdot(xnn) @ Pnn @ Bdot(xnn).T + Q(xnn)
+        if(torch.any(torch.isnan(y[:, k]))):
+            xnn = xnn1
+            Pnn = Pnn1
+        else:
+            Stmp = Zdot(xnn1) @ Pnn1 @ Zdot(xnn1).T + R(xnn1)
+            Sn = (Stmp + Stmp.T)/2 + Sn_reg * torch.eye(N)
+            Sinv = torch.linalg.inv(Sn)
+            K = Pnn1 @ Zdot(xnn1).T @ Sinv
+            innov = y[:, k] - Z(xnn1)
+            xnn = xnn1 + K @ innov
+            Pnn = Pnn1 - K @ Zdot(xnn1) @ Pnn1
+        logLike += -0.5 * (N * log2Pi + torch.logdet(Sn) +
+                           innov.T @ torch.linalg.solve(Sn, innov))
+        if torch.isnan(logLike):
+            raise ValueError("obtained nan log likelihood")
+    return logLike
+
 
 def filterLDS_SS_withMissingValues_np(y, B, Q, m0, V0, Z, R):
     """ Kalman filter implementation of the algorithm described in Shumway and
@@ -568,7 +787,7 @@ def filterLDS_SS_withMissingValues_np(y, B, Q, m0, V0, Z, R):
     :param: R: observations covariance matrix
     :type: R: numpy matrix (NxN)
 
-    :return:  {xnn1, Vnn1, xnn, Vnn, innov, K, Sn, logLike}: xnn1 and Vnn1 (predicted means, MxT, and covariances, MxMxT), xnn and Vnn (filtered means, MxT, and covariances, MxMxT), innov (innovations, NxT), K (Kalman gain matrices, MxNxT), Sn (innovations covariance matrices, NxNxT), logLike (data loglikelihood, float).
+    :return:  {xnn1, Pnn1, xnn, Pnn, innov, K, Sn, logLike}: xnn1 and Pnn1 (predicted means, MxT, and covariances, MxMxT), xnn and Pnn (filtered means, MxT, and covariances, MxMxT), innov (innovations, NxT), K (Kalman gain matrices, MxNxT), Sn (innovations covariance matrices, NxNxT), logLike (data loglikelihood, float).
     :rtype: dictionary
 
     """
@@ -583,49 +802,49 @@ def filterLDS_SS_withMissingValues_np(y, B, Q, m0, V0, Z, R):
     N = y.shape[1]
     P = y.shape[0]
     xnn1 = np.empty(shape=[M, 1, N])
-    Vnn1 = np.empty(shape=[M, M, N])
+    Pnn1 = np.empty(shape=[M, M, N])
     xnn = np.empty(shape=[M, 1, N])
-    Vnn = np.empty(shape=[M, M, N])
+    Pnn = np.empty(shape=[M, M, N])
     innov = np.empty(shape=[P, 1, N])
     Sn = np.empty(shape=[P, P, N])
 
     # k==0
     xnn1[:, 0, 0] = B @ m0
-    Vnn1[:, :, 0] = B @ V0 @ B.T + Q
-    Stmp = Z @ Vnn1[:, :, 0] @ Z.T + R
+    Pnn1[:, :, 0] = B @ V0 @ B.T + Q
+    Stmp = Z @ Pnn1[:, :, 0] @ Z.T + R
     Sn[:, :, 0] = (Stmp + Stmp.T) / 2
     Sinv = np.linalg.inv(Sn[:, :, 0])
-    K = Vnn1[:, :, 0] @ Z.T @ Sinv
+    K = Pnn1[:, :, 0] @ Z.T @ Sinv
     innov[:, 0, 0] = y[:, 0] - (Z @  xnn1[:, :, 0]).squeeze()
     xnn[:, :, 0] = xnn1[:, :, 0] + K @ innov[:, :, 0]
-    Vnn[:, :, 0] = Vnn1[:, :, 0] - K @ Z @ Vnn1[:, :, 0]
+    Pnn[:, :, 0] = Pnn1[:, :, 0] - K @ Z @ Pnn1[:, :, 0]
     logLike = -N*P*np.log(2*np.pi) - np.linalg.slogdet(Sn[:, :, 0])[1] - \
         innov[:, :, 0].T @ Sinv @ innov[:, :, 0]
 
     # k>1
     for k in range(1, N):
         xnn1[:, :, k] = B @ xnn[:, :, k-1]
-        Vnn1[:, :, k] = B @ Vnn[:, :, k-1] @ B.T + Q
+        Pnn1[:, :, k] = B @ Pnn[:, :, k-1] @ B.T + Q
         if(np.any(np.isnan(y[:, k]))):
             xnn[:, :, k] = xnn1[:, :, k]
-            Vnn[:, :, k] = Vnn1[:, :, k]
+            Pnn[:, :, k] = Pnn1[:, :, k]
         else:
-            Stmp = Z @ Vnn1[:, :, k] @ Z.T + R
+            Stmp = Z @ Pnn1[:, :, k] @ Z.T + R
             Sn[:, :, k] = (Stmp + Stmp.T)/2
             Sinv = np.linalg.inv(Sn[:, :, k])
-            K = Vnn1[:, :, k] @ Z.T @ Sinv
+            K = Pnn1[:, :, k] @ Z.T @ Sinv
             innov[:, 0, k] = y[:, k] - (Z @ xnn1[:, :, k]).squeeze()
             xnn[:, :, k] = xnn1[:, :, k] + K @ innov[:, :, k]
-            Vnn[:, :, k] = Vnn1[:, :, k] - K @ Z @ Vnn1[:, :, k]
+            Pnn[:, :, k] = Pnn1[:, :, k] - K @ Z @ Pnn1[:, :, k]
         logLike = logLike-np.linalg.slogdet(Sn[:, :, k])[1] -\
             innov[:, :, k].T @ Sinv @ innov[:, :, k]
     logLike = 0.5 * logLike
-    answer = {"xnn1": xnn1, "Vnn1": Vnn1, "xnn": xnn, "Vnn": Vnn,
+    answer = {"xnn1": xnn1, "Pnn1": Pnn1, "xnn": xnn, "Pnn": Pnn,
               "innov": innov, "KN": K, "Sn": Sn, "logLike": logLike}
     return answer
 
 
-def smoothLDS_SS(B, xnn, Vnn, xnn1, Vnn1, m0, V0):
+def smoothLDS_SS(B, xnn, Pnn, xnn1, Pnn1, m0, V0):
     """ Kalman smoother implementation
 
     :param: B: state transition matrix
@@ -634,14 +853,14 @@ def smoothLDS_SS(B, xnn, Vnn, xnn1, Vnn1, m0, V0):
     :param: xnn: filtered means (from Kalman filter)
     :type: xnn: numpy array (MxT)
 
-    :param: Vnn: filtered covariances (from Kalman filter)
-    :type: Vnn: numpy array (MxMXT)
+    :param: Pnn: filtered covariances (from Kalman filter)
+    :type: Pnn: numpy array (MxMXT)
 
     :param: xnn1: predicted means (from Kalman filter)
     :type: xnn1: numpy array (MxT)
 
-    :param: Vnn1: predicted covariances (from Kalman filter)
-    :type: Vnn1: numpy array (MxMXT)
+    :param: Pnn1: predicted covariances (from Kalman filter)
+    :type: Pnn1: numpy array (MxMXT)
 
     :param: m0: initial state mean
     :type: m0: one-dimensional numpy array (M)
@@ -649,7 +868,7 @@ def smoothLDS_SS(B, xnn, Vnn, xnn1, Vnn1, m0, V0):
     :param: V0: initial state covariance
     :type: V0: numpy matrix (MxM)
 
-    :return:  {xnN, VnN, Jn, x0N, V0N, J0}: xnn1 and Vnn1 (smoothed means, MxT, and covariances, MxMxT), Jn (smoothing gain matrix, MxMxT), x0N and V0N (smoothed initial state mean, M, and covariance, MxM), J0 (initial smoothing gain matrix, MxN).
+    :return:  {xnN, VnN, Jn, x0N, V0N, J0}: xnn1 and Pnn1 (smoothed means, MxT, and covariances, MxMxT), Jn (smoothing gain matrix, MxMxT), x0N and V0N (smoothed initial state mean, M, and covariance, MxM), J0 (initial smoothing gain matrix, MxN).
 
     """
     if m0.ndim != 1:
@@ -662,18 +881,18 @@ def smoothLDS_SS(B, xnn, Vnn, xnn1, Vnn1, m0, V0):
     Jn = np.empty(shape=[M, M, N])
 
     xnN[:, :, -1] = xnn[:, :, -1]
-    VnN[:, :, -1] = Vnn[:, :, -1]
+    VnN[:, :, -1] = Pnn[:, :, -1]
     for n in reversed(range(1, N)):
-        Jn[:, :, n-1] = Vnn[:, :, n-1] @ B.T @ np.linalg.inv(Vnn1[:, :, n])
+        Jn[:, :, n-1] = Pnn[:, :, n-1] @ B.T @ np.linalg.inv(Pnn1[:, :, n])
         xnN[:, :, n-1] = xnn[:, :, n-1] + \
             Jn[:, :, n-1] @ (xnN[:, :, n]-xnn1[:, :, n])
-        VnN[:, :, n-1] = Vnn[:, :, n-1] + \
-            Jn[:, :, n-1] @ (VnN[:, :, n]-Vnn1[:, :, n]) @ Jn[:, :, n-1].T
+        VnN[:, :, n-1] = Pnn[:, :, n-1] + \
+            Jn[:, :, n-1] @ (VnN[:, :, n]-Pnn1[:, :, n]) @ Jn[:, :, n-1].T
     # initial state x00 and V00
     # return the smooth estimates of the state at time 0: x0N and V0N
-    J0 = V0 @ B.T @ np.linalg.inv(Vnn1[:, :, 0])
+    J0 = V0 @ B.T @ np.linalg.inv(Pnn1[:, :, 0])
     x0N = np.expand_dims(m0, 1) + J0 @ (xnN[:, :, 0] - xnn1[:, :, 0])
-    V0N = V0 + J0 @ (VnN[:, :, 0] - Vnn1[:, :, 0]) @ J0.T
+    V0N = V0 + J0 @ (VnN[:, :, 0] - Pnn1[:, :, 0]) @ J0.T
     answer = {"xnN": xnN, "VnN": VnN, "Jn": Jn, "x0N": x0N, "V0N": V0N,
               "J0": J0}
     return answer
