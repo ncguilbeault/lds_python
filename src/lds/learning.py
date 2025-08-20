@@ -134,11 +134,7 @@ def torch_lbfgs_optimize_kinematicsHO_logLikeEKF_diagV0(
                     "tolerance_grad": tolerance_grad,
                     "tolerance_change": tolerance_change,
                     "line_search_fn": line_search_fn}
-    m0_kinematics = m0_kinematics_0
-    m0_HO = m0_HO_0
     m0 = torch.cat([m0_kinematics_0, m0_HO_0])
-    sqrt_diag_V0_kinematics = sqrt_diag_V0_kinematics_0
-    sqrt_diag_V0_HO = sqrt_diag_V0_HO_0
     sqrt_diag_V0 = torch.cat([sqrt_diag_V0_kinematics_0, sqrt_diag_V0_HO_0])
     sigma_a = torch.tensor([sigma_a0], dtype=torch.double)
     cos_theta_Q_std = torch.tensor([cos_theta_Q_std0], dtype=torch.double)
@@ -171,14 +167,10 @@ def torch_lbfgs_optimize_kinematicsHO_logLikeEKF_diagV0(
         x.append(sin_theta_R_std)
     if vars_to_estimate["alpha"]:
         x.append(alpha)
-    if vars_to_estimate["m0_kinematics"]:
-        x.append(m0_kinematics)
-    if vars_to_estimate["m0_HO"]:
-        x.append(m0_HO)
-    if vars_to_estimate["sqrt_diag_V0_kinematics"]:
-        x.append(sqrt_diag_V0_kinematics)
-    if vars_to_estimate["sqrt_diag_V0_HO"]:
-        x.append(sqrt_diag_V0_HO)
+    if vars_to_estimate["m0_kinematics"] or vars_to_estimate["m0_HO"]:
+        x.append(m0)
+    if vars_to_estimate["sqrt_diag_V0_kinematics"] or vars_to_estimate["sqrt_diag_V0_HO"]:
+        x.append(sqrt_diag_V0)
     if len(x) == 0:
         raise RuntimeError("No variable to estimate. Please set one element "
                            "of vars_to_estimate to True")
@@ -210,13 +202,17 @@ def torch_lbfgs_optimize_kinematicsHO_logLikeEKF_diagV0(
         if vars_to_estimate["alpha"]:
             print_string += f", alpha={alpha.item()}"
         if vars_to_estimate["m0_kinematics"]:
-            print_string += f", m0_kinematics={m0_kinematics}"
+            m0.grad[6:] = 0.0
+            print_string += f", m0={m0.tolist()}"
         if vars_to_estimate["m0_HO"]:
-            print_string += f", m0_HO={m0_HO}"
+            m0.grad[:6] = 0.0
+            print_string += f", m0={m0.tolist()}"
         if vars_to_estimate["sqrt_diag_V0_kinematics"]:
-            print_string += f", sqrt_diag_V0_kinematics={sqrt_diag_V0_kinematics}"
+            sqrt_diag_V0.grad[6:] = 0.0
+            print_string += f", sqrt_diag_V0={sqrt_diag_V0.tolist()}"
         if vars_to_estimate["sqrt_diag_V0_HO"]:
-            print_string += f", sqrt_diag_V0_HO={sqrt_diag_V0_HO}"
+            sqrt_diag_V0.grad[:6] = 0.0
+            print_string += f", sqrt_diag_V0={sqrt_diag_V0.tolist()}"
         print(print_string)
         return curEval
 
@@ -266,21 +262,14 @@ def torch_lbfgs_optimize_kinematicsHO_logLikeEKF_diagV0(
         if vars_to_estimate["alpha"]:
             print("alpha: ")
             print(alpha.item())
-        if vars_to_estimate["m0_kinematics"]:
-            print("m0_kinematics: ")
-            print(m0_kinematics)
-        if vars_to_estimate["m0_HO"]:
-            print("m0_HO: ")
-            print(m0_HO)
-        if vars_to_estimate["sqrt_diag_V0_kinematics"]:
-            print("sqrt_diag_V0_kinematics: ")
-            print(sqrt_diag_V0_kinematics)
-        if vars_to_estimate["sqrt_diag_V0_HO"]:
-            print("sqrt_diag_V0_HO: ")
-            print(sqrt_diag_V0_HO)
+        if vars_to_estimate["m0_kinematics"] or vars_to_estimate["m0_HO"]:
+            print("m0: ")
+            print(m0)
+        if vars_to_estimate["sqrt_diag_V0_kinematics"] or vars_to_estimate["sqrt_diag_V0_HO"]:
+            print("sqrt_diag_V0: ")
+            print(sqrt_diag_V0)
         if epoch > 0 and log_like[-1] - log_like[-2] < tol:
             termination_info = "success: converged"
-            breakpoint()
             break
     for i in range(len(x)):
         x[i].requires_grad = False
@@ -304,14 +293,10 @@ def torch_lbfgs_optimize_kinematicsHO_logLikeEKF_diagV0(
         estimates["sin_theta_R_std"] = sin_theta_R_std
     if vars_to_estimate["alpha"]:
         estimates["alpha"] = alpha
-    if vars_to_estimate["m0_kinematics"]:
-        estimates["m0_kinematics"] = m0_kinematics
-    if vars_to_estimate["m0_HO"]:
-        estimates["m0_HO"] = m0_HO
-    if vars_to_estimate["sqrt_diag_V0_kinematics"]:
-        estimates["sqrt_diag_V0_kinematics"] = sqrt_diag_V0_kinematics
-    if vars_to_estimate["sqrt_diag_V0_HO"]:
-        estimates["sqrt_diag_V0_HO"] = sqrt_diag_V0_HO
+    if vars_to_estimate["m0_kinematics"] or vars_to_estimate["m0_HO"]:
+        estimates["m0"] = m0
+    if vars_to_estimate["sqrt_diag_V0_kinematics"] or vars_to_estimate["sqrt_diag_V0_HO"]:
+        estimates["sqrt_diag_V0"] = sqrt_diag_V0
     answer = {"estimates": estimates,
               "log_like": log_like,
               "elapsed_time": elapsed_time,
@@ -417,7 +402,7 @@ def torch_lbfgs_optimize_SS_tracking_diagV0(y, B, Qe, Z,
                                                 "pos_x_R_std": True,
                                                 "pos_y_R_std": True,
                                                 "m0": True,
-                                                "V0": True}):
+                                                "sqrt_diag_V0": True}):
 
     import torch
     def log_likelihood_fn():
@@ -461,7 +446,6 @@ def torch_lbfgs_optimize_SS_tracking_diagV0(y, B, Qe, Z,
     def closure():
         optimizer.zero_grad()
         curEval = -log_likelihood_fn()
-        print(f"ll={-curEval}")
         curEval.backward()
         print_string = f"ll={-curEval}"
         if vars_to_estimate["sigma_a"]:
