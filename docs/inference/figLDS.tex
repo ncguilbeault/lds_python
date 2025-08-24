@@ -1,0 +1,26 @@
+\begin{tikzpicture}[node distance=2.5cm and 1.8cm]
+
+  % Nodes for hidden states
+  \node[latent]              (x0) {$x_0$};
+  \node[latent, right=of x0] (x1) {$x_1$};
+  \node[latent, right=of x1] (x2) {$x_2$};
+  \node[latent, right=of x2, draw=none] (xD) {$\cdots$};
+  \node[latent, right=of xD] (xT) {$x_T$};
+
+  % Nodes for observations
+  \node[obs, below=of x1] (y1) {$y_1$};
+  \node[obs, below=of x2] (y2) {$y_2$};
+  \node[obs, below=of xT] (yT) {$y_T$};
+
+  % Edges between hidden states
+  \edge {x0} {x1};
+  \edge {x1} {x2};
+  \edge {x2} {xD};
+  \edge {xD} {xT};
+
+  % Emission edges
+  \edge {x1} {y1};
+  \edge {x2} {y2};
+  \edge {xT} {yT};
+
+\end{tikzpicture}

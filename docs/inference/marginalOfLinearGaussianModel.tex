@@ -1,0 +1,144 @@
+\begin{lemma}
+
+    Let
+
+    \begin{align*}
+        p(\mathbf{y}|\mathbf{x})&=\mathcal{N}(\mathbf{y}|A\mathbf{x}+\mathbf{b},\Sigma)\\
+        p(\mathbf{x})&=\mathcal{N}(\mathbf{x}|\boldsymbol{\mu},\Lambda)
+    \end{align*}
+
+    \noindent then
+
+    \begin{align*}
+        p(\mathbf{y})=\mathcal{N}(\mathbf{y}|A\boldsymbol{\mu}+\mathbf{b},A\Lambda A^\intercal+\Sigma)
+    \end{align*}
+    \label{lemma:linearModelGaussianLatents}
+\end{lemma}
+
+\begin{proof}
+
+    \begin{align}
+        \ln p(\mathbf{x},\mathbf{y})&=\ln p(\mathbf{y}|\mathbf{x})+\ln p(\mathbf{x})\nonumber\\
+                                    &=-\frac{1}{2}\left(\mathbf{y}-\left(A\mathbf{x}+\mathbf{b}\right)\right)^\intercal\Sigma^{-1}\left(\mathbf{y}-\left(A\mathbf{x}+\mathbf{b}\right)\right)-\frac{1}{2}\left(\mathbf{x}-\boldsymbol{\mu}\right)^\intercal\Lambda^{-1}\left(\mathbf{x}-\boldsymbol{\mu}\right)+K_1\nonumber\\
+                                    &=-\frac{1}{2}\mathbf{y}^\intercal\Sigma^{-1}\mathbf{y}+\frac{1}{2}\mathbf{y}^\intercal\Sigma^{-1}A\mathbf{x}+\frac{1}{2}\mathbf{x}^\intercal A^\intercal\Sigma^{-1}\mathbf{y}-\frac{1}{2}\mathbf{x}^\intercal\left(A^\intercal\Sigma^{-1}A+\Lambda^{-1}\right)\mathbf{x}\nonumber\\
+                                    &\quad+\frac{1}{2}\mathbf{y}^\intercal\Sigma^{-1}\mathbf{b}+\frac{1}{2}\mathbf{x}^\intercal(-A^\intercal\Sigma^{-1}\mathbf{b}+\Lambda\boldsymbol{\mu})+\frac{1}{2}\mathbf{b}^\intercal\Sigma^{-1}\mathbf{y}+\frac{1}{2}(-\mathbf{b}^\intercal\Sigma^{-1}A+\boldsymbol{\mu}^\intercal\Lambda)\mathbf{x}+K_2\nonumber\\
+                                    &=-\frac{1}{2}[\mathbf{x}^\intercal,\mathbf{y}^\intercal]
+                                    \left[\begin{array}{cc}
+                                        A^\intercal\Sigma^{-1}A+\Lambda^{-1}&-A^\intercal\Sigma^{-1}\nonumber\\
+                                        -\Sigma^{-1}A&\Sigma^{-1}
+                                    \end{array}\right]\left[\begin{array}{c}
+                                                                \mathbf{x}\nonumber\\
+                                                                \mathbf{y}
+                                                            \end{array}\right]\nonumber\\
+                                    &\quad+\frac{1}{2}[\mathbf{x}^\intercal,\mathbf{y}^\intercal]
+                                    \left[\begin{array}{c}
+                                        -A^\intercal\Sigma^{-1}\mathbf{b}+\Lambda^{-1}\boldsymbol{\mu}\\
+                                        \Sigma^{-1}\mathbf{b}
+                                    \end{array}\right]+
+                                    \frac{1}{2}[-\mathbf{b}^\intercal\Sigma^{-1}A+\boldsymbol{\mu}^\intercal\Lambda^{-1},\mathbf{b}^\intercal\Sigma^{-1}]
+                                    \left[\begin{array}{c}
+                                        \mathbf{x}\\
+                                        \mathbf{y}
+                                    \end{array}\right]+K_2\label{eq:completingSquares1}
+    \end{align}
+
+    \noindent where $K_1$ and $K_2$ are contants that does not depend on $\mathbf{x}$ or
+    $\mathbf{y}$.
+
+    Because $\ln p(\mathbf{x},\mathbf{y})$ is a quadratic form, then
+    $p(\mathbf{x},\mathbf{y})$ is a normal probability density function (pdf),
+    thus its marginal $p(\mathbf{y})$ is also a normal pdf.
+    Our aim is to derive the mean and covariance of $\mathbf{y}$,
+    $\boldsymbol{\mu}_y$ and $\Gamma_{yy}$, respectively.
+
+    Call
+
+    \begin{align*}
+        p(\mathbf{x},\mathbf{y})=\mathcal{N}\left(\left[\begin{array}{c}
+                                                            \mathbf{x}\\
+                                                            \mathbf{y}
+                                                        \end{array}\right]\left|\left[\begin{array}{c}
+                                                                                          \boldsymbol{\mu}_x\\
+                                                                                          \boldsymbol{\mu}_y\\
+                                                                                      \end{array}\right]\right.,\Gamma\right)
+    \end{align*}
+
+    \noindent with
+
+    \begin{align*}
+        \Phi^{-1}=\Gamma=\left[\begin{array}{cc}
+                                   \Gamma_{xx}&\Gamma_{xy}\\
+                                   \Gamma_{yx}&\Gamma_{yy}
+                               \end{array}\right]
+    \end{align*}
+
+    Next,
+
+    \begin{align}
+        \ln p(\mathbf{x},\mathbf{y})&=-\frac{1}{2}\left[(\mathbf{x}-\boldsymbol{\mu}_x)^\intercal,(\mathbf{y}-\boldsymbol{\mu}_y)^\intercal\right]\Phi\left[(\mathbf{x}-\boldsymbol{\mu}_x),(\mathbf{y}-\boldsymbol{\mu}_y))\right]+K_1\nonumber\\
+                                    &=-\frac{1}{2}[\mathbf{x}^\intercal,\mathbf{y}^\intercal]\Phi\raisebox{-0.7em}{$\left[\begin{array}{c}\mathbf{x}\\\mathbf{y}\end{array}\right]$}+\frac{1}{2}[\mathbf{x}^\intercal,\mathbf{y}^\intercal]\Phi\raisebox{-0.7em}{$\left[\begin{array}{c}\boldsymbol{\mu}_x\\\boldsymbol{\mu}_y\end{array}\right]$}+\frac{1}{2}[\boldsymbol{\mu}_x^\intercal,\boldsymbol{\mu}_y^\intercal]\Phi\raisebox{-0.7em}{$\left[\begin{array}{c}\mathbf{x}\\\mathbf{y}\end{array}\right]$}+K_2\label{eq:completingSquares2}
+    \end{align}
+
+    \noindent where $K_1$ and $K_2$ are contants that does not depend on $\mathbf{x}$ or
+    $\mathbf{y}$.
+
+
+    From Eqs.~\ref{eq:completingSquares1} and~\ref{eq:completingSquares2}
+    it follows that
+
+    \begin{align}
+        \Phi=\left[\begin{array}{cc}
+                       A^\intercal\Sigma^{-1}A+\Lambda^{-1}&-A^\intercal\Sigma^{-1}\nonumber\\
+                       -\Sigma^{-1}A&\Sigma^{-1}
+                   \end{array}\right]
+    \end{align}
+
+    \noindent and
+
+    \begin{align*}
+        \raisebox{0.7em}{$\Phi$}\left[\begin{array}{c}\boldsymbol{\mu}_x\\\boldsymbol{\mu}_y\end{array}\right]=
+            \left[\begin{array}{c}
+                      -A^\intercal\Sigma^{-1}\mathbf{b}+\Lambda^{-1}\boldsymbol{\mu}\\
+                      \Sigma^{-1}\mathbf{b}
+                  \end{array}\right]
+    \end{align*}
+
+    Then
+
+    \begin{align}
+        \Gamma&=\left[\begin{array}{cc}
+                         \Gamma_{xx}&\Gamma_{xy}\\
+                         \Gamma_{yx}&\Gamma_{yy}
+                     \end{array}\right]=
+        \Phi^{-1}=\left[\begin{array}{cc}
+                                    A^\intercal\Sigma^{-1}A+\Lambda^{-1}&-A^\intercal\Sigma^{-1}\\
+                                    -\Sigma^{-1}A&\Sigma^{-1}
+                                \end{array}\right]^{-1}
+                        =\left[\begin{array}{cc}
+                            \Lambda&\Lambda A\\
+                                    A\Lambda&\Sigma+A\Lambda A^\intercal
+                                \end{array}\right]\footnotemark[13]\label{eq:Gamma_final}\\
+        \left[\begin{array}{c}\boldsymbol{\mu}_x\\\boldsymbol{\mu}_y\end{array}\right]&=
+            \Phi^{-1}\left[\begin{array}{c}
+                      -A^\intercal\Sigma^{-1}\mathbf{b}+\Lambda^{-1}\boldsymbol{\mu}\\
+                      \Sigma^{-1}\mathbf{b}
+                  \end{array}\right]=
+            \Gamma\left[\begin{array}{c}
+                      -A^\intercal\Sigma^{-1}\mathbf{b}+\Lambda^{-1}\boldsymbol{\mu}\\
+                      \Sigma^{-1}\mathbf{b}
+                  \end{array}\right]
+                  =\left[\begin{array}{c}
+                              \boldsymbol{\mu}\\
+                              A\boldsymbol{\mu}+\mathbf{b}
+                          \end{array}\right]\nonumber
+    \end{align}
+
+    Thus,
+
+    \begin{align*}
+        \Gamma_{yy}&=\Sigma+A\Lambda A^\intercal\\
+        \boldsymbol{\mu}_y&=A\boldsymbol{\mu}+\mathbf{b}
+    \end{align*}
+    \footnotetext[13]{Lemma~\ref{lemma:inverseOfBlockMatrix}.}
+
+\end{proof}

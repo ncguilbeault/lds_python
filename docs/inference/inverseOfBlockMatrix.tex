@@ -1,0 +1,69 @@
+\begin{lemma}
+
+    \begin{align*}
+        \left[\begin{array}{cc}
+                  A&B\\
+                  C&D
+        \end{array}\right]^{-1}&=\left[\begin{array}{cc}
+                                           M&-MBD^{-1}\\
+                                           -D^{-1}CM&D^{-1}+D^{-1}CMBD^{-1}
+                                        \end{array}\right]\\
+        &with\\
+        M&=(A-BD^{-1}C)^{-1}
+    \end{align*}
+
+    \label{lemma:inverseOfBlockMatrix}
+\end{lemma}
+
+\begin{proof}
+    \begin{align*}
+        \left[\begin{array}{cc}
+                  A&B\\
+                  C&D
+        \end{array}\right]\left[\begin{array}{cc}
+                                    M&-MBD^{-1}\\
+                                    -D^{-1}CM&D^{-1}+D^{-1}CMBD^{-1}
+        \end{array}\right]&=\\
+                                \quad\left[\begin{array}{cc}
+                                         AM-BD^{-1}CM&-AMBD^{-1}+BD^{-1}+BD^{-1}CMBD^{-1}\\
+                                         CM-CM&-CMBD^{-1}+I+CMBD^{-1}
+                                \end{array}\right]&=\\
+                                \quad\left[\begin{array}{cc}
+                                               (A-BD^{-1}C)M&(-A+M^{-1}+BD^{-1}C)MBD^{-1}\\
+                                               0&I
+                                \end{array}\right]&=\\
+                                \quad\left[\begin{array}{cc}
+                                               M^{-1}M&(-M^{-1}+M^{-1})MBD^{-1}\\
+                                               0&I
+                                \end{array}\right]&=\left[\begin{array}{cc}
+                                                              I&0\\
+                                                              0&I
+                                                           \end{array}\right]\\
+        \left[\begin{array}{cc}
+                  M&-MBD^{-1}\\
+                  -D^{-1}CM&D^{-1}+D^{-1}CMBD^{-1}
+        \end{array}\right]\left[\begin{array}{cc}
+                                    A&B\\
+                                    C&D
+                                \end{array}\right]&=\\
+                                \left[\begin{array}{cc}
+                                          MA-MBD^{-1}C&MB-MB\\
+                                          -D^{-1}CMA+D^{-1}C+D^{-1}CMBD^{-1}C&-D^{-1}CMB+I-D^{-1}CMB
+                                      \end{array}\right]&=\\
+                                \left[\begin{array}{cc}
+                                          M(A-BD^{-1}C)&0\\
+                                          -D^{-1}CM(A-BD^{-1}C)+D^{-1}C&I
+                                      \end{array}\right]&=\\
+                                \left[\begin{array}{cc}
+                                    MM^{-1}&0\\
+                                          -D^{-1}CMM^{-1}+D^{-1}C&I
+                                      \end{array}\right]&=\\
+                                \left[\begin{array}{cc}
+                                          I&0\\
+                                          -D^{-1}C+D^{-1}C&I
+                                      \end{array}\right]&=\left[\begin{array}{cc}
+                                                                    I&0\\
+                                                                    0&I
+                                                                \end{array}\right]
+    \end{align*}
+\end{proof}
