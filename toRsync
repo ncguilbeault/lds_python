@@ -1,5 +1,5 @@
 #!/bin/csh
 
-rsync -uv figures/* ssh.swc.ucl.ac.uk:dev/work/ucl/gatsby-swc/fwg/lds_repo/figures
-rsync -uv results/* ssh.swc.ucl.ac.uk:dev/work/ucl/gatsby-swc/fwg/lds_repo/results
-rsync -uv metadata/* ssh.swc.ucl.ac.uk:dev/work/ucl/gatsby-swc/fwg/lds_repo/metadata
+rsync -uv figures/* ssh.swc.ucl.ac.uk:gatsby-swc/gatsby/code/ssm_rapela/repos/ssm/figures
+rsync -uv results/* ssh.swc.ucl.ac.uk:gatsby-swc/fwg/ssm_rapela/respos/ssm/results
+rsync -uv metadata/* ssh.swc.ucl.ac.uk:gatsby-swc/fwg/ssm_rapela/respos/ssm/metadata
