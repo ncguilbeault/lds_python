@@ -1,4 +1,14 @@
 
+
+
+"""
+Learning and inference of latents with MC_MAZE_SMALL data
+============================================================
+
+The code below learns and infers latents with MC_MAZE_SMALL data.
+
+"""
+
 import numpy as np
 import plotly.graph_objects as go
 
@@ -9,20 +19,6 @@ import ssm.inference
 import ssm.learning
 import ssm.neural_latents.utils
 import ssm.neural_latents.plotting
-
-
-#%%
-# Define auxiliary functions
-# ^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-def add_events_vlines(fig, trials_df, events_names,
-                      events_linetypes, events_colors):
-    n_trials = trials_df.shape[0]
-    for r in range(n_trials):
-        for e, event_name in enumerate(events_names):
-            fig.add_vline(x=trials_df.iloc[r][event_name],
-                          line_dash=events_linetypes[e],
-                          line_color=events_colors[e])
 
 
 #%%
@@ -42,6 +38,8 @@ events_names = ["start_time", "target_on_time", "go_cue_time",
 events_linetypes = ["dot", "dash", "dashdot", "longdash", "solid"]
 events_colors = ["white", "white", "white", "white", "white"]
 cb_alpha = 0.3
+from_time = 100.0
+to_time = 150.0
 
 # model
 n_latents = 10
@@ -60,6 +58,20 @@ max_iter = 2
 tol = 1e-1
 vars_to_estimate = {"B": True, "Q": True, "Z": True, "R": True,
                     "m0": True, "V0": True, }
+
+#%%
+# Define auxiliary plotting function
+# ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+def add_events_vlines(fig, trials_df, events_names,
+                      events_linetypes, events_colors):
+    n_trials = trials_df.shape[0]
+    for r in range(n_trials):
+        for e, event_name in enumerate(events_names):
+            fig.add_vline(x=trials_df.iloc[r][event_name],
+                          line_dash=events_linetypes[e],
+                          line_color=events_colors[e])
+
 
 #%%
 # Download data
@@ -97,6 +109,10 @@ binned_spikes, bin_edges = ssm.neural_latents.utils.bin_spike_times(
 bin_centers = (bin_edges[1:] + bin_edges[:-1])/2
 transformed_binned_spikes = np.sqrt(binned_spikes + 0.5)
 
+#%%
+# Plot binned spikes
+# ~~~~~~~~~~~~~~~~~~
+
 fig = go.Figure()
 trace = go.Heatmap(x=bin_centers, z=transformed_binned_spikes,
                    colorbar=dict(title="<b>Sqrt(spike_count+0.5)</b>"))
@@ -127,6 +143,21 @@ optim_res = ssm.learning.em_SS_LDS(
 )
 
 #%%
+# Plot log likelihood vs iteration number
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+N = len(optim_res["log_like"])
+iter_no = np.arange(0, N)
+fig = go.Figure()
+trace = go.Scatter(x=iter_no,
+                   y=optim_res["log_like"],
+                   mode="lines+markers")
+fig.add_trace(trace)
+fig.update_layout(xaxis=dict(title="Iteration Number"),
+                  yaxis=dict(title="Lower Bound"))
+fig
+
+#%%
 # Kalman filtering
 # ^^^^^^^^^^^^^^^^
 
@@ -147,12 +178,24 @@ smoothing_res = ssm.inference.smoothLDS_SS(
 # Plot smoothed states
 # ^^^^^^^^^^^^^^^^^^^^
 
-o_means, o_covs = ssm.neural_latents.utils.ortogonalizeMeansAndCovs(
+
+first_index = np.where(bin_centers >= from_time)[0][0]
+last_index = np.where(bin_centers <= to_time)[0][-1]
+to_plot_slice = slice(first_index, last_index)
+bin_centers_to_plot = bin_centers[to_plot_slice]
+trials_df = trials_df[np.logical_and(
+    trials_df['start_time'] >= from_time,
+    trials_df['stop_time'] <= to_time,
+)]
+
+means_to_plot = smoothing_res["xnN"][:, :, to_plot_slice]
+covs_to_plot = smoothing_res["PnN"][:, :, to_plot_slice]
+o_means_to_plot, o_covs_to_plot = ssm.neural_latents.utils.ortogonalizeMeansAndCovs(
     means=smoothing_res["xnN"], covs=smoothing_res["PnN"], Z=optim_res["Z"])
 
 fig = ssm.neural_latents.plotting.plot_latents(
-    means=o_means,
-    covs=o_covs,
+    means=o_means_to_plot,
+    covs=o_covs_to_plot,
     bin_centers=bin_centers,
     trials_df=trials_df,
     events_names=events_names,
