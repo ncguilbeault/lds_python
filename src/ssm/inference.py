@@ -868,7 +868,7 @@ def smoothLDS_SS(B, xnn, Pnn, xnn1, Pnn1, m0, V0):
     :param: V0: initial state covariance
     :type: V0: numpy matrix (MxM)
 
-    :return:  {xnN, VnN, Jn, x0N, V0N, J0}: xnn1 and Pnn1 (smoothed means, MxT, and covariances, MxMxT), Jn (smoothing gain matrix, MxMxT), x0N and V0N (smoothed initial state mean, M, and covariance, MxM), J0 (initial smoothing gain matrix, MxN).
+    :return:  {xnN, PnN, Jn, x0N, V0N, J0}: xnn1 and Pnn1 (smoothed means, MxT, and covariances, MxMxT), Jn (smoothing gain matrix, MxMxT), x0N and V0N (smoothed initial state mean, M, and covariance, MxM), J0 (initial smoothing gain matrix, MxN).
 
     """
     if m0.ndim != 1:
@@ -877,22 +877,22 @@ def smoothLDS_SS(B, xnn, Pnn, xnn1, Pnn1, m0, V0):
     N = xnn.shape[2]
     M = B.shape[0]
     xnN = np.empty(shape=[M, 1, N])
-    VnN = np.empty(shape=[M, M, N])
+    PnN = np.empty(shape=[M, M, N])
     Jn = np.empty(shape=[M, M, N])
 
     xnN[:, :, -1] = xnn[:, :, -1]
-    VnN[:, :, -1] = Pnn[:, :, -1]
+    PnN[:, :, -1] = Pnn[:, :, -1]
     for n in reversed(range(1, N)):
         Jn[:, :, n-1] = Pnn[:, :, n-1] @ B.T @ np.linalg.inv(Pnn1[:, :, n])
         xnN[:, :, n-1] = xnn[:, :, n-1] + \
             Jn[:, :, n-1] @ (xnN[:, :, n]-xnn1[:, :, n])
-        VnN[:, :, n-1] = Pnn[:, :, n-1] + \
-            Jn[:, :, n-1] @ (VnN[:, :, n]-Pnn1[:, :, n]) @ Jn[:, :, n-1].T
+        PnN[:, :, n-1] = Pnn[:, :, n-1] + \
+            Jn[:, :, n-1] @ (PnN[:, :, n]-Pnn1[:, :, n]) @ Jn[:, :, n-1].T
     # initial state x00 and V00
     # return the smooth estimates of the state at time 0: x0N and V0N
     J0 = V0 @ B.T @ np.linalg.inv(Pnn1[:, :, 0])
     x0N = np.expand_dims(m0, 1) + J0 @ (xnN[:, :, 0] - xnn1[:, :, 0])
-    V0N = V0 + J0 @ (VnN[:, :, 0] - Pnn1[:, :, 0]) @ J0.T
-    answer = {"xnN": xnN, "VnN": VnN, "Jn": Jn, "x0N": x0N, "V0N": V0N,
+    V0N = V0 + J0 @ (PnN[:, :, 0] - Pnn1[:, :, 0]) @ J0.T
+    answer = {"xnN": xnN, "PnN": PnN, "Jn": Jn, "x0N": x0N, "V0N": V0N,
               "J0": J0}
     return answer
