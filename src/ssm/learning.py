@@ -776,7 +776,7 @@ def em_SS_LDS(y, B0, Q0, Z0, R0, m0_0, V0_0, max_iter=50, tol=1e-4,
         if vars_to_estimate["V0"]:
             V0 = ks["V0N"]
 
-    answer = dict(B=B, Q=Q, Z=Z, R=R, m0=m0, V0=V0, log_like=log_like[:iter],
+    answer = dict(B=B, Q=Q, Z=Z, R=R, m0=m0, V0=V0, log_like=log_like[:(iter+1)],
                   niter=iter)
     return answer
 
