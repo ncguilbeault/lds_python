@@ -1,0 +1,5 @@
+#!/bin/csh
+
+rsync -uv "u237c:gatsby-swc/gatsby/code/ssm_rapela/repos/ssm/figures/*" figures/
+rsync -uv "u237c:gatsby-swc/fwg/ssm_rapela/respos/ssm/results/*" results/
+rsync -uv "u237c:gatsby-swc/fwg/ssm_rapela/respos/ssm/metadata/*" metadata/
