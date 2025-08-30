@@ -32,6 +32,9 @@ def getLDSmatricesForKinematics_torch(dt, sigma_a, pos_x_R_std, pos_y_R_std):
 
     return B, Q, Qe, Z, R
 
+def getLDSmatricesForKinematics_np(dt, sigma_a, pos_x_R_std, pos_y_R_std):
+    B, Q, Qe, Z, R = getLDSmatricesForKinematics_torch(dt, sigma_a, pos_x_R_std, pos_y_R_std)
+    return B.numpy(), Q.numpy(), Qe.numpy(), Z.numpy(), R.numpy()
 
 def getNDSwithGaussianNoiseFunctionsForKinematicsAndHO_torch(
         dt, alpha, sigma_a,
