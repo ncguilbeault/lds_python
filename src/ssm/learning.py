@@ -421,8 +421,8 @@ def torch_lbfgs_optimize_SS_tracking_diagV0(y, B, Qe, Z,
                     "tolerance_change": tolerance_change,
                     "line_search_fn": line_search_fn}
     sigma_a = torch.tensor([sigma_a0], dtype=torch.double)
-    pos_x_R_std = pos_x_R_std0
-    pos_y_R_std = pos_y_R_std0
+    pos_x_R_std = torch.tensor([pos_x_R_std0], dtype=torch.double)
+    pos_y_R_std = torch.tensor([pos_y_R_std0], dtype=torch.double)
     m0 = m0_0
     sqrt_diag_V0 = sqrt_diag_V0_0
     x = []
@@ -663,15 +663,15 @@ def em_SS_tracking(y, B, sigma_a0, Qe, Z, R_0, m0_0, V0_0,
             termination_info = "converged"
             break
         elapsed_time.append(time.time() - start_time)
-        ks = inference.smoothLDS_SS(B=B, xnn=kf["xnn"], Vnn=kf["Vnn"],
-                                    xnn1=kf["xnn1"], Vnn1=kf["Vnn1"],
+        ks = inference.smoothLDS_SS(B=B, xnn=kf["xnn"], Pnn=kf["Pnn"],
+                                    xnn1=kf["xnn1"], Pnn1=kf["Pnn1"],
                                     m0=m0, V0=V0)
         # M step
         if vars_to_estimate["sigma_a"]:
             sigma_a_prev = sigma_a
             S11, S10, S00 = posteriorCorrelationMatrices(Z=Z, B=B, KN=kf["KN"],
-                                                         Vnn=kf["Vnn"], xnN=ks["xnN"],
-                                                         VnN=ks["VnN"], x0N=ks["x0N"],
+                                                         Pnn=kf["Pnn"], xnN=ks["xnN"],
+                                                         PnN=ks["PnN"], x0N=ks["x0N"],
                                                          V0N=ks["V0N"], Jn=ks["Jn"],
                                                          J0=ks["J0"])
             # sigma_a
@@ -683,10 +683,10 @@ def em_SS_tracking(y, B, sigma_a0, Qe, Z, R_0, m0_0, V0_0,
         if vars_to_estimate["R"]:
             R_prev = R
             u = y[:, 0] - (Z @ ks["xnN"][:, :, 0]).squeeze()
-            R = np.outer(u, u) + Z @ ks["VnN"][:, :, 0] @ Z.T
+            R = np.outer(u, u) + Z @ ks["PnN"][:, :, 0] @ Z.T
             for i in range(1, N):
                 u = y[:, i] - (Z @ ks["xnN"][:, :, i]).squeeze()
-                R = R + np.outer(u, u) + Z @ ks["VnN"][:, :, i] @ Z.T
+                R = R + np.outer(u, u) + Z @ ks["PnN"][:, :, i] @ Z.T
             R = R/N
 
         # m0, V0
@@ -715,89 +715,94 @@ def em_SS_tracking(y, B, sigma_a0, Qe, Z, R_0, m0_0, V0_0,
     return optim_res
 
 
-def em_SS_LDS(y, B0, Q0, Z0, R0, m0, V0, max_iter=50, tol=1e-4,
-              varsToEstimate=dict(m0=True, V0=True, B=True, Q=True, Z=True,
-                                  R=True)):
+def em_SS_LDS(y, B0, Q0, Z0, R0, m0_0, V0_0, max_iter=50, tol=1e-4,
+              vars_to_estimate=dict(m0=True, V0=True, B=True, Q=True, Z=True,
+                                    R=True)):
     B  = B0
     Q  = Q0
     Z  = Z0
     R  = R0
-    V0 = V0
+    m0 = m0_0
+    V0 = V0_0
 
     M = B0.shape[0]
     N = y.shape[1]
     log_like = np.empty(max_iter)
-
+    prev_log_like = -np.inf
     for iter in range(max_iter):
         kf = inference.filterLDS_SS_withMissingValues_np(y=y, B=B,
                                                          Q=Q, m0=m0, V0=V0,
                                                          Z=Z, R=R)
         print("LogLike[{:04d}]={:f}".format(iter, kf["logLike"].item()))
         log_like[iter] = kf["logLike"]
-        ks = inference.smoothLDS_SS(B=B, xnn=kf["xnn"], Vnn=kf["Vnn"],
-                                    xnn1=kf["xnn1"], Vnn1=kf["Vnn1"],
+        assert(kf["logLike"] > prev_log_like)
+        if (kf["logLike"] - prev_log_like) < tol:
+            break
+        prev_log_like = kf["logLike"]
+        ks = inference.smoothLDS_SS(B=B, xnn=kf["xnn"], Pnn=kf["Pnn"],
+                                    xnn1=kf["xnn1"], Pnn1=kf["Pnn1"],
                                     m0=m0, V0=V0)
 
         S11, S10, S00 = posteriorCorrelationMatrices(Z=Z, B=B, KN=kf["KN"],
-                                                     Vnn=kf["Vnn"], xnN=ks["xnN"],
-                                                     VnN=ks["VnN"], x0N=ks["x0N"],
+                                                     Pnn=kf["Pnn"], xnN=ks["xnN"],
+                                                     PnN=ks["PnN"], x0N=ks["x0N"],
                                                      V0N=ks["V0N"], Jn=ks["Jn"],
                                                      J0=ks["J0"])
-        if varsToEstimate["Z"]:
+        if vars_to_estimate["Z"]:
             Z = np.outer(y[:,0], ks["xnN"][:, :, 0])
             for i in range(1, N):
                 Z = Z + np.outer(y[:, i], ks["xnN"][:, :, i])
             Z = Z @ np.linalg.inv(S11)
 
-        if varsToEstimate["B"]:
+        if vars_to_estimate["B"]:
             B = S10 @ np.linalg.inv(S00)
 
-        if varsToEstimate["Q"]:
+        if vars_to_estimate["Q"]:
             Q = (S11 - S10 @ np.linalg.inv(S00) @ S10.T)/N
             Q = (Q.T + Q)/2
 
         # Now that Z is estimated, lets estimate R, if requested
-        if varsToEstimate["R"]:
+        if vars_to_estimate["R"]:
             u = y[:, 0] - (Z @ ks["xnN"][:, :, 0]).squeeze()
-            R = np.outer(u, u) + Z @ ks["VnN"][:, :, 0] @ Z.T
+            R = np.outer(u, u) + Z @ ks["PnN"][:, :, 0] @ Z.T
             for i in range(1, N):
                 u = y[:, i] - (Z @ ks["xnN"][:, :, i]).squeeze()
-                R = R + np.outer(u, u) + Z @ ks["VnN"][:, :, i] @ Z.T
+                R = R + np.outer(u, u) + Z @ ks["PnN"][:, :, i] @ Z.T
             R = R/N
 
-        if varsToEstimate["m0"]:
-            m0 = ks["x0N"]
+        if vars_to_estimate["m0"]:
+            m0 = ks["x0N"].squeeze()
 
-        if varsToEstimate["V0"]:
+        if vars_to_estimate["V0"]:
             V0 = ks["V0N"]
 
     answer = dict(B=B, Q=Q, Z=Z, R=R, m0=m0, V0=V0, log_like=log_like[:iter],
                   niter=iter)
     return answer
 
-def posteriorCorrelationMatrices(Z, B, KN, Vnn, xnN, VnN, x0N, V0N, Jn, J0):
+def posteriorCorrelationMatrices(Z, B, KN, Pnn, xnN, PnN, x0N, V0N, Jn, J0):
     # We want to first estimate Z and then R, because R depends on Z
-    Vnn1N = lag1CovSmootherLDS_SS(Z=Z, KN=KN, B=B, Vnn=Vnn, Jn=Jn, J0=J0)
-    S11 = np.outer(xnN[:,:,0], xnN[:,:,0]) + VnN[:,:,0]
-    S10 = np.outer(xnN[:,:,0], x0N) + Vnn1N[:,:,0]
+    Pnn1N = lag1CovSmootherLDS_SS(Z=Z, KN=KN, B=B, Pnn=Pnn, Jn=Jn, J0=J0)
+    S11 = np.outer(xnN[:,:,0], xnN[:,:,0]) + PnN[:,:,0]
+    S10 = np.outer(xnN[:,:,0], x0N) + Pnn1N[:,:,0]
     S00 = np.outer(x0N, x0N) + V0N
     N = xnN.shape[2]
     for i in range(1, N):
-        S11 = S11 + np.outer(xnN[:, :, i], xnN[:, :, i]) + VnN[:, :, i]
-        S10 = S10 + np.outer(xnN[:, :, i], xnN[:, :, i-1]) + Vnn1N[:, :, i]
-        S00 = S00 + np.outer(xnN[:, :, i-1], xnN[:, :, i-1]) + VnN[:, :, i-1]
+        S11 = S11 + np.outer(xnN[:, :, i], xnN[:, :, i]) + PnN[:, :, i]
+        S10 = S10 + np.outer(xnN[:, :, i], xnN[:, :, i-1]) + Pnn1N[:, :, i]
+        S00 = S00 + np.outer(xnN[:, :, i-1], xnN[:, :, i-1]) + PnN[:, :, i-1]
     return S11, S10, S00
 
-def lag1CovSmootherLDS_SS(Z, KN, B, Vnn, Jn, J0):
+def lag1CovSmootherLDS_SS(Z, KN, B, Pnn, Jn, J0):
     #SS16, Property 6.3
     M = KN.shape[0]
-    N = Vnn.shape[2]
-    Vnn1N = np.empty(shape=(M, M, N))
+    N = Pnn.shape[2]
+    Pnn1N = np.empty(shape=(M, M, N))
     eye = np.eye(M)
-    Vnn1N[:, :, N-1] = (eye - KN @ Z) @ B @ Vnn[:, :, N-2]
+    Pnn1N[:, :, N-1] = (eye - KN @ Z) @ B @ Pnn[:, :, N-2]
     for k in range(N-1, 1, -1):
-        Vnn1N[:, :, k-1] = Vnn[:, :, k-1] @ Jn[:, :, k-2].T + \
+        Pnn1N[:, :, k-1] = Pnn[:, :, k-1] @ Jn[:, :, k-2].T + \
                            Jn[:, :, k-1] @ \
-                           (Vnn1N[:, :, k] - B @ Vnn[:, :, k-1]) @ Jn[:, :, k-2].T
-    Vnn1N[:, :, 0] = Vnn[:, :, 0] @ J0.T + Jn[:, :, 0] @ (Vnn1N[:, :, 1] - B @ Vnn[:, :, 0]) @ J0.T
-    return Vnn1N
+                           (Pnn1N[:, :, k] - B @ Pnn[:, :, k-1]) @ Jn[:, :, k-2].T
+    Pnn1N[:, :, 0] = Pnn[:, :, 0] @ J0.T + Jn[:, :, 0] @ (Pnn1N[:, :, 1] - B @ Pnn[:, :, 0]) @ J0.T
+    return Pnn1N
