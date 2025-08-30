@@ -5,8 +5,8 @@ import plotly.express as px
 import webcolors
 
 
-def plot_latents(means, covs, bin_centers, trials_df, events_names_to_plot,
-                 events_linetypes_to_plot, 
+def plot_latents(means, covs, bin_centers, trials_df, events_names,
+                 events_linetypes, 
                  legend_pattern="filtering_{:d}", cb_alpha=0.3, colors=[],
                  xlabel="Time (sec)", ylabel="Latent Value"):
     if len(colors) == 0:
@@ -45,8 +45,8 @@ def plot_latents(means, covs, bin_centers, trials_df, events_names_to_plot,
 
     n_trials = trials_df.shape[0]
     for r in range(n_trials):
-        for e, event_name in enumerate(events_names_to_plot):
-            event_linetype_to_plot = events_linetypes_to_plot[e]
+        for e, event_name in enumerate(events_names):
+            event_linetype_to_plot = events_linetypes[e]
             fig.add_vline(x=trials_df.iloc[r][event_name],
                           line_dash=event_linetype_to_plot)
     fig.update_xaxes(title=xlabel)
