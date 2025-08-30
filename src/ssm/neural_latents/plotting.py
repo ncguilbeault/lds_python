@@ -6,7 +6,7 @@ import webcolors
 
 
 def plot_latents(means, covs, bin_centers, trials_df, events_names,
-                 events_linetypes, 
+                 events_linetypes, events_colors,
                  legend_pattern="filtering_{:d}", cb_alpha=0.3, colors=[],
                  xlabel="Time (sec)", ylabel="Latent Value"):
     if len(colors) == 0:
@@ -43,12 +43,21 @@ def plot_latents(means, covs, bin_centers, trials_df, events_names,
         fig.add_trace(trace)
         fig.add_trace(trace_cb)
 
-    n_trials = trials_df.shape[0]
-    for r in range(n_trials):
-        for e, event_name in enumerate(events_names):
-            event_linetype_to_plot = events_linetypes[e]
-            fig.add_vline(x=trials_df.iloc[r][event_name],
-                          line_dash=event_linetype_to_plot)
+    add_events_vlines(fig=fig, trials_df=trials_df, events_names=events_names,
+                      events_linetypes=events_linetypes,
+                      events_colors=events_colors)
+
     fig.update_xaxes(title=xlabel)
     fig.update_yaxes(title=ylabel)
     return fig
+
+
+def add_events_vlines(fig, trials_df, events_names,
+                      events_linetypes, events_colors):
+    n_trials = trials_df.shape[0]
+    for r in range(n_trials):
+        for e, event_name in enumerate(events_names):
+            fig.add_vline(x=trials_df.iloc[r][event_name],
+                          line_dash=events_linetypes[e],
+                          line_color=events_colors[e])
+
