@@ -22,7 +22,7 @@ import torch
 import scipy
 import plotly.graph_objects as go
 
-import lds.learning
+import ssm.learning
 
 
 #%%
@@ -36,8 +36,8 @@ skip_estimation_V0 = False
 
 start_position = 0
 # number_positions = 10000
-number_positions = 7500
-# number_positions = 50
+# number_positions = 7500
+number_positions = 50
 lbfgs_max_iter = 2
 lbfgs_tolerance_grad = -1
 lbfgs_tolerance_change = 1e-3
@@ -83,8 +83,8 @@ dt = (date_times.iloc[1]-date_times.iloc[0]).total_seconds()
 # Build the matrices of the CWPA model
 # ------------------------------------
 
-B, _, Z, _, Qe = lds.tracking.utils.getLDSmatricesForTracking(
-    dt=dt, sigma_a=np.nan, sigma_x=np.nan, sigma_y=np.nan)
+B, _, Qe, Z, _ = ssm.tracking.utils.getLDSmatricesForKinematics_np(
+    dt=dt, sigma_a=np.nan, pos_x_R_std=np.nan, pos_y_R_std=np.nan)
 m0 = np.array([pos_x0, vel_x0, ace_x0, pos_y0, vel_y0, ace_y0],
               dtype=np.double)
 
@@ -95,11 +95,11 @@ else:
     vars_to_estimate["sigma_a"] = True
 
 if skip_estimation_R:
-    vars_to_estimate["sqrt_diag_R"] = False
-    vars_to_estimate["R"] = False
+    vars_to_estimate["pos_x_R_std"] = False
+    vars_to_estimate["pos_y_R_std"] = False
 else:
-    vars_to_estimate["sqrt_diag_R"] = True
-    vars_to_estimate["R"] = True
+    vars_to_estimate["pos_x_R_std"] = True
+    vars_to_estimate["pos_y_R_std"] = True
 
 if skip_estimation_m0:
     vars_to_estimate["m0"] = False
@@ -130,9 +130,9 @@ B_torch = torch.from_numpy(B.astype(np.double))
 Qe_regularized_ga_torch = torch.from_numpy(Qe_regularized_ga.astype(np.double))
 Z_torch = torch.from_numpy(Z.astype(np.double))
 
-optim_res_ga = lds.learning.torch_lbfgs_optimize_SS_tracking_diagV0(
-    y=y_torch, B=B_torch, sigma_a0=sigma_a0,
-    Qe=Qe_regularized_ga_torch, Z=Z_torch, sqrt_diag_R_0=sqrt_diag_R_torch, m0_0=m0_torch,
+optim_res_ga = ssm.learning.torch_lbfgs_optimize_SS_tracking_diagV0(
+    y=y_torch, B=B_torch, Qe=Qe_regularized_ga_torch, Z=Z_torch,
+    sigma_a0=sigma_a0, pos_x_R_std0=sigma_x0, pos_y_R_std0=sigma_y0, m0_0=m0_torch,
     sqrt_diag_V0_0=sqrt_diag_V0_torch, max_iter=lbfgs_max_iter, lr=lbfgs_lr,
     vars_to_estimate=vars_to_estimate, tolerance_grad=lbfgs_tolerance_grad,
     tolerance_change=lbfgs_tolerance_change, n_epochs=lbfgs_n_epochs,
@@ -165,7 +165,7 @@ if Qe_reg_param_em is not None:
 else:
     Qe_regularized_em = Qe
 
-optim_res_em  = lds.learning.em_SS_tracking(
+optim_res_em  = ssm.learning.em_SS_tracking(
     y=y_interpolated, B=B, sigma_a0=sigma_a0,
     Qe=Qe_regularized_em, Z=Z, R_0=R_0, m0_0=m0_0, V0_0=V0_0,
     vars_to_estimate=vars_to_estimate,
@@ -199,24 +199,24 @@ fig
 #%%
 # Perform batch filtering
 # #######################
-# View source code of `lds.inference.filterLDS_SS_withMissingValues_np
-# <https://joacorapela.github.io/lds_python/_modules/lds/inference.html#filterLDS_SS_withMissingValues_np>`_
+# View source code of `ssm.inference.filterLDS_SS_withMissingValues_np
+# <https://joacorapela.github.io/ssm/_modules/ssm/inference.html#filterLDS_SS_withMissingValues_np>`_
 
 Q_ga = optim_res_ga["estimates"]["sigma_a"].item()**2*Qe
 m0_ga = optim_res_ga["estimates"]["m0"].numpy()
 V0_ga = np.diag(optim_res_ga["estimates"]["sqrt_diag_V0"].numpy()**2)
 R_ga = np.diag(optim_res_ga["estimates"]["sqrt_diag_R"].numpy()**2)
 
-filterRes_ga = lds.inference.filterLDS_SS_withMissingValues_np(
+filterRes_ga = ssm.inference.filterLDS_SS_withMissingValues_np(
     y=y, B=B, Q=Q_ga, m0=m0_ga, V0=V0_ga, Z=Z, R=R_ga)
 
 #%%
 # Perform batch smoothing
 # #######################
-# View source code of `lds.inference.smoothLDS_SS
-# <https://joacorapela.github.io/lds_python/_modules/lds/inference.html#smoothLDS_SS>`_
+# View source code of `ssm.inference.smoothLDS_SS
+# <https://joacorapela.github.io/ssm/_modules/ssm/inference.html#smoothLDS_SS>`_
 
-smoothRes_ga = lds.inference.smoothLDS_SS(
+smoothRes_ga = ssm.inference.smoothLDS_SS(
     B=B, xnn=filterRes_ga["xnn"], Vnn=filterRes_ga["Vnn"],
     xnn1=filterRes_ga["xnn1"], Vnn1=filterRes_ga["Vnn1"], m0=m0_ga, V0=V0_ga)
 
@@ -227,24 +227,24 @@ smoothRes_ga = lds.inference.smoothLDS_SS(
 #%%
 # Perform batch filtering
 # #######################
-# View source code of `lds.inference.filterLDS_SS_withMissingValues_np
-# <https://joacorapela.github.io/lds_python/_modules/lds/inference.html#filterLDS_SS_withMissingValues_np>`_
+# View source code of `ssm.inference.filterLDS_SS_withMissingValues_np
+# <https://joacorapela.github.io/ssm/_modules/ssm/inference.html#filterLDS_SS_withMissingValues_np>`_
 
 Q_em = optim_res_em["estimates"]["sigma_a"].item()**2*Qe
 m0_em = optim_res_em["estimates"]["m0"]
 V0_em = optim_res_em["estimates"]["V0"]
 R_em = optim_res_em["estimates"]["R"]
 
-filterRes_em = lds.inference.filterLDS_SS_withMissingValues_np(
+filterRes_em = ssm.inference.filterLDS_SS_withMissingValues_np(
     y=y, B=B, Q=Q_em, m0=m0_em, V0=V0_em, Z=Z, R=R_em)
 
 #%%
 # Perform batch smoothing
 # #######################
-# View source code of `lds.inference.smoothLDS_SS
-# <https://joacorapela.github.io/lds_python/_modules/lds/inference.html#smoothLDS_SS>`_
+# View source code of `ssm.inference.smoothLDS_SS
+# <https://joacorapela.github.io/ssm/_modules/ssm/inference.html#smoothLDS_SS>`_
 
-smoothRes_em = lds.inference.smoothLDS_SS(
+smoothRes_em = ssm.inference.smoothLDS_SS(
     B=B, xnn=filterRes_em["xnn"], Vnn=filterRes_em["Vnn"],
     xnn1=filterRes_em["xnn1"], Vnn1=filterRes_em["Vnn1"], m0=m0_em, V0=V0_em)
 
