@@ -1,9 +1,9 @@
 Linear dynamical systems in Python ![lint+unitTests](https://github.com/joacorapela/ssm/actions/workflows/lint+unitTests.yml/badge.svg) ![docs](https://readthedocs.org/projects/pip/badge/)
 ----------------------------------
 
-- documentation, including a gallery of scripts demonstrating the use of linear dynamical systems for linear regression, kinematics inference, and neural latents inference appears [here](https://joacorapela.github.io/ssm/index.html).
+Documentation, including a gallery of scripts demonstrating the use of linear dynamical systems for linear regression, kinematics inference, and neural latents inference appears [here](https://joacorapela.github.io/ssm/index.html).
 
-Follow the links for derivation of the:
+Follow the links for:
 - derivation of the [Kalman filter matrices used for tracking](docs/tracking/tracking.pdf),
 - derivation of the [Kalman filter algorithm](docs/inference/ldsInference.pdf),
 - derivation of the [Extended Kalman Filter algorithm](docs/inference/ekfInference.pdf),
