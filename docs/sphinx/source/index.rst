@@ -11,7 +11,7 @@ Linear Dynamical Systems's documentation
    :caption: Contents
 
    introduction
-   auto_examples
+   auto_examples/index
 
 .. toctree::
    :maxdepth: 4
