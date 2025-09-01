@@ -97,9 +97,11 @@ else:
 if skip_estimation_R:
     vars_to_estimate["pos_x_R_std"] = False
     vars_to_estimate["pos_y_R_std"] = False
+    vars_to_estimate["R"] = False
 else:
     vars_to_estimate["pos_x_R_std"] = True
     vars_to_estimate["pos_y_R_std"] = True
+    vars_to_estimate["R"] = True
 
 if skip_estimation_m0:
     vars_to_estimate["m0"] = False
@@ -205,7 +207,8 @@ fig
 Q_ga = optim_res_ga["estimates"]["sigma_a"].item()**2*Qe
 m0_ga = optim_res_ga["estimates"]["m0"].numpy()
 V0_ga = np.diag(optim_res_ga["estimates"]["sqrt_diag_V0"].numpy()**2)
-R_ga = np.diag(optim_res_ga["estimates"]["sqrt_diag_R"].numpy()**2)
+R_ga = np.diag([optim_res_ga["estimates"]["pos_x_R_std"].item()**2,
+                optim_res_ga["estimates"]["pos_y_R_std"].item()**2])
 
 filterRes_ga = ssm.inference.filterLDS_SS_withMissingValues_np(
     y=y, B=B, Q=Q_ga, m0=m0_ga, V0=V0_ga, Z=Z, R=R_ga)
@@ -217,8 +220,8 @@ filterRes_ga = ssm.inference.filterLDS_SS_withMissingValues_np(
 # <https://joacorapela.github.io/ssm/_modules/ssm/inference.html#smoothLDS_SS>`_
 
 smoothRes_ga = ssm.inference.smoothLDS_SS(
-    B=B, xnn=filterRes_ga["xnn"], Vnn=filterRes_ga["Vnn"],
-    xnn1=filterRes_ga["xnn1"], Vnn1=filterRes_ga["Vnn1"], m0=m0_ga, V0=V0_ga)
+    B=B, xnn=filterRes_ga["xnn"], Pnn=filterRes_ga["Pnn"],
+    xnn1=filterRes_ga["xnn1"], Pnn1=filterRes_ga["Pnn1"], m0=m0_ga, V0=V0_ga)
 
 #%%
 # EM
@@ -245,8 +248,8 @@ filterRes_em = ssm.inference.filterLDS_SS_withMissingValues_np(
 # <https://joacorapela.github.io/ssm/_modules/ssm/inference.html#smoothLDS_SS>`_
 
 smoothRes_em = ssm.inference.smoothLDS_SS(
-    B=B, xnn=filterRes_em["xnn"], Vnn=filterRes_em["Vnn"],
-    xnn1=filterRes_em["xnn1"], Vnn1=filterRes_em["Vnn1"], m0=m0_em, V0=V0_em)
+    B=B, xnn=filterRes_em["xnn"], Pnn=filterRes_em["Pnn"],
+    xnn1=filterRes_em["xnn1"], Pnn1=filterRes_em["Pnn1"], m0=m0_em, V0=V0_em)
 
 #%%
 # Plot smoothing results
@@ -402,10 +405,10 @@ def get_fig_kinematics_vs_time(
 N = y.shape[1]
 time = np.arange(0, N*dt, dt)
 smoothed_means_ga = smoothRes_ga["xnN"]
-smoothed_covs_ga = smoothRes_ga["VnN"]
+smoothed_covs_ga = smoothRes_ga["PnN"]
 smoothed_std_x_y_ga = np.sqrt(np.diagonal(a=smoothed_covs_ga, axis1=0, axis2=1))
 smoothed_means_em = smoothRes_em["xnN"]
-smoothed_covs_em = smoothRes_em["VnN"]
+smoothed_covs_em = smoothRes_em["PnN"]
 smoothed_std_x_y_em = np.sqrt(np.diagonal(a=smoothed_covs_em, axis1=0, axis2=1))
 color_true = "blue"
 color_measured = "black"
