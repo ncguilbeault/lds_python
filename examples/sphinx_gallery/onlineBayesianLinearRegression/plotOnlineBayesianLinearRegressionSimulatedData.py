@@ -17,7 +17,7 @@ import scipy.stats
 import plotly.subplots
 import plotly.graph_objects as go
 
-import lds.inference
+import ssm.inference
 
 #%%
 # Define data generation variables
@@ -115,7 +115,7 @@ fig.update_yaxes(title_text="y", row=1, col=3)
 
 mn = m0
 Sn = S0
-kf = lds.inference.TimeVaryingOnlineKalmanFilter()
+kf = ssm.inference.TimeVaryingOnlineKalmanFilter()
 
 for n, t in enumerate(y):
     print(f"Processing {n}/({len(y)})")
