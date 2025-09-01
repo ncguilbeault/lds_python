@@ -19,7 +19,7 @@ import pandas as pd
 import scipy.stats
 import matplotlib.pyplot as plt
 
-import lds.inference
+import ssm.inference
 
 #%%
 # Define variables
@@ -72,7 +72,7 @@ ax2 = fig.add_subplot(2, 1, 2)
 
 mn = m0
 Sn = S0
-kf = lds.inference.TimeVaryingOnlineKalmanFilter()
+kf = ssm.inference.TimeVaryingOnlineKalmanFilter()
 for n, t in enumerate(responses):
     print(f"Processing {n}/({len(responses)})")
     # update posterior
