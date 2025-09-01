@@ -87,17 +87,17 @@ optim_res = ssm.learning.em_SS_LDS(
 )
 
 #%%
-# Plot lower bound vs elapsed time
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Plot log likelihood vs iteration number
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-N = y.shape[1]
-sample_indices = np.arange(0, N)
+N = len(optim_res["log_like"])
+iter_no = np.arange(0, N)
 fig = go.Figure()
-trace = go.Scatter(x=sample_indices,
+trace = go.Scatter(x=iter_no,
                    y=optim_res["log_like"],
                    mode="lines+markers")
 fig.add_trace(trace)
-fig.update_layout(xaxis=dict(title="Sample Number"),
+fig.update_layout(xaxis=dict(title="Iteration Number"),
                   yaxis=dict(title="Lower Bound"))
 fig
 
@@ -117,7 +117,7 @@ true_values = x[(0, 1), :]
 filtered_means = filter_res["xnn"][(0, 1), 0, :]
 filtered_stds = np.sqrt(np.diagonal(a=filter_res["Pnn"], axis1=0, axis2=1)[:, (0, 1)].T)
 fig = ssm.tracking.plotting.get_x_and_y_time_series_vs_time_fig(
-    time=sample_indices,
+    time=iter_no,
     ylabel="State",
     true_values=true_values,
     filtered_means=filtered_means,
@@ -142,7 +142,7 @@ one_step_ahead_var = np.diagonal(aux_covs, axis1=0, axis2=1).T
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 fig = ssm.tracking.plotting.get_x_and_y_time_series_vs_time_fig(
-    time=sample_indices,
+    time=iter_no,
     ylabel="One-Step Ahead Forecasts",
     measurements=y,
     filtered_means=one_step_ahead_mean,
