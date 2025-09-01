@@ -36,7 +36,8 @@ bin_size = 0.02
 events_names = ["start_time", "target_on_time", "go_cue_time",
                 "move_onset_time", "stop_time"]
 events_linetypes = ["dot", "dash", "dashdot", "longdash", "solid"]
-events_colors = ["white", "white", "white", "white", "white"]
+events_colors_spikes = ["white", "white", "white", "white", "white"]
+events_colors_latents = ["black", "black", "black", "black", "black"]
 cb_alpha = 0.3
 from_time = 100.0
 to_time = 130.0
@@ -53,8 +54,8 @@ sigma_m0 = 0.1
 sigma_V0 = 0.1
 
 # estimation parameters
-# max_iter = 5000
-max_iter = 2
+# max_iter = 2000
+max_iter = 20
 tol = 1e-1
 vars_to_estimate = {"B": True, "Q": True, "Z": True, "R": True,
                     "m0": True, "V0": True, }
@@ -116,7 +117,7 @@ trace = go.Heatmap(x=bin_centers_to_plot,
 fig.add_trace(trace)
 ssm.neural_latents.plotting.add_events_vlines(
     fig=fig, trials_df=trials_df, events_names=events_names,
-    events_linetypes=events_linetypes, events_colors=events_colors)
+    events_linetypes=events_linetypes, events_colors=events_colors_spikes)
 fig.update_xaxes(title="Time (sec)")
 fig.update_yaxes(title="Cluster Index")
 fig
@@ -185,7 +186,7 @@ fig = ssm.neural_latents.plotting.plot_latents(
     trials_df=trials_df,
     events_names=events_names,
     events_linetypes=events_linetypes,
-    events_colors=events_colors,
+    events_colors=events_colors_latents,
     cb_alpha=cb_alpha,
     legend_pattern="smoothing_{:d}",
 )
