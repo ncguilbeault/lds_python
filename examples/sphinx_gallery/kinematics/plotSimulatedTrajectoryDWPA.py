@@ -15,8 +15,8 @@ model.
 import numpy as np
 import plotly.graph_objs as go
 
-import lds.tracking.utils
-import lds.simulation
+import ssm.tracking.utils
+import ssm.simulation
 
 
 #%%
@@ -40,8 +40,8 @@ sqrt_diag_V0_value = 1e-03
 # Set LDS parameters
 # ~~~~~~~~~~~~~~~~~~
 
-B, Q, Z, R, Qe = lds.tracking.utils.getLDSmatricesForTracking(
-    dt=dt, sigma_a=sigma_a, sigma_x=sigma_x, sigma_y=sigma_y)
+B, Q, Qe, Z, R = ssm.tracking.utils.getLDSmatricesForKinematics_np(
+    dt=dt, sigma_a=sigma_a, pos_x_R_std=sigma_x, pos_y_R_std=sigma_y)
 R = np.diag([sigma_x**2, sigma_y**2])
 m0 = np.array([pos_x0, vel_x0, ace_x0, pos_y0, vel_y0, ace_y0],
               dtype=np.double)
@@ -50,11 +50,11 @@ V0 = np.diag(np.ones(len(m0))*sqrt_diag_V0_value**2)
 #%%
 # Sample from the LDS
 # ~~~~~~~~~~~~~~~~~~~
-# View source code of `lds.simulation.simulateLDS
-# <https://joacorapela.github.io/lds_python/_modules/lds/simulation.html#simulateLDS>`_
+# View source code of `ssm.simulation.simulateLDS
+# <https://joacorapela.github.io/ssm/_modules/ssm/simulation.html#simulateLDS>`_
 
-x0, x, y = lds.simulation.simulateLDS(N=num_pos, B=B, Q=Q, Z=Z, R=R,
-                                             m0=m0, V0=V0)
+x0, x, y = ssm.simulation.simulateLDS(T=num_pos, B=B, Q=Q, Z=Z, R=R, m0=m0,
+                                      V0=V0)
 
 #%%
 # Plot state positions and measurements
