@@ -28,6 +28,10 @@ import ssm.neural_latents.plotting
 # Here I am setting a small value to variable ``max_iter``, in order to build
 # this documentation quickly. You may want to set this variable to
 # ``max_iter=2000`` in combination with a small error tolerance ``tol=1e-3``.
+#
+# In addition, you may want to plot all the data, and not just a small time
+# interval between ``from_time = 100.0`` and ``to_time = 130.0``, by setting
+# ``from_time = -np.inf`` and ``to_time = np.inf``.
 
 # data
 get_data_from_Dandi = True
