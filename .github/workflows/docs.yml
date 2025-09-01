@@ -11,6 +11,8 @@ jobs:
           pip install -e .
           pip install -r requirements.txt
           pip install -r docs/sphinx/requirements.txt
+          pip uninstall h5py
+          conda install h5py
       - name: Sphinx build
         run: |
           sphinx-build docs/sphinx/source/ docs/sphinx/build/
