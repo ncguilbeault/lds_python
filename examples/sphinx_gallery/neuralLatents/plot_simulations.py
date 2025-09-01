@@ -37,6 +37,8 @@ num_pos = 2000
 
 x0, x, y = ssm.simulation.simulateLDS(T=num_pos, B=B, Q=Q, Z=Z, R=R, m0=m0,
                                       V0=V0)
+simulation_step = np.arange(x.shape[1])
+
 #%%
 # Plot simulation
 # ~~~~~~~~~~~~~~~
@@ -110,15 +112,16 @@ filter_res = ssm.inference.filterLDS_SS_withMissingValues_np(
     V0=optim_res["V0"], Z=optim_res["Z"], R=optim_res["R"])
 
 #%%
-# Plot true and estimated states
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Plot true and filtered states
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 true_values = x[(0, 1), :]
 filtered_means = filter_res["xnn"][(0, 1), 0, :]
 filtered_stds = np.sqrt(np.diagonal(a=filter_res["Pnn"], axis1=0, axis2=1)[:, (0, 1)].T)
 fig = ssm.tracking.plotting.get_x_and_y_time_series_vs_time_fig(
-    time=iter_no,
+    time=simulation_step,
     ylabel="State",
+    xlabel="Simulation Step",
     true_values=true_values,
     filtered_means=filtered_means,
     filtered_stds=filtered_stds)
@@ -142,8 +145,9 @@ one_step_ahead_var = np.diagonal(aux_covs, axis1=0, axis2=1).T
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 fig = ssm.tracking.plotting.get_x_and_y_time_series_vs_time_fig(
-    time=iter_no,
+    time=simulation_step,
     ylabel="One-Step Ahead Forecasts",
+    xlabel="Simulation Step",
     measurements=y,
     filtered_means=one_step_ahead_mean,
     filtered_stds=np.sqrt(one_step_ahead_var))
