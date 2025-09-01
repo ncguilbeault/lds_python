@@ -29,8 +29,8 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-import lds.tracking.utils
-import lds.inference
+import ssm.tracking.utils
+import ssm.inference
 
 #%%
 # Setup configuration variables
@@ -72,8 +72,8 @@ sqrt_diag_V0_value = 1e-3
 
 date_times = pd.to_datetime(data["time"])
 dt = (date_times.iloc[1]-date_times.iloc[0]).total_seconds()
-B, Q, Z, R, Qe = lds.tracking.utils.getLDSmatricesForTracking(
-    dt=dt, sigma_a=sigma_a, sigma_x=sigma_x, sigma_y=sigma_y)
+B, Q, Qe, Z, R = ssm.tracking.utils.getLDSmatricesForKinematics_np(
+    dt=dt, sigma_a=sigma_a, pos_x_R_std=sigma_x, pos_y_R_std=sigma_y)
 m0 = np.array([[y[0, 0], 0, 0, y[1, 0], 0, 0]], dtype=np.double).T
 V0 = np.diag(np.ones(len(m0))*sqrt_diag_V0_value**2)
 
@@ -81,7 +81,7 @@ V0 = np.diag(np.ones(len(m0))*sqrt_diag_V0_value**2)
 # Apply the Kalman filter to the mouse position measurements
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-onlineKF = lds.inference.OnlineKalmanFilter(B=B, Q=Q, m0=m0, V0=V0, Z=Z, R=R)
+onlineKF = ssm.inference.OnlineKalmanFilter(B=B, Q=Q, m0=m0, V0=V0, Z=Z, R=R)
 filtered_means = np.empty((6, 1, y.shape[1]), dtype=np.double)
 filtered_covs = np.empty((6, 6, y.shape[1]), dtype=np.double)
 for i in range(y.shape[1]):
