@@ -24,7 +24,6 @@ import ssm.neural_latents.plotting
 #%%
 # Define variables
 # ^^^^^^^^^^^^^^^^
-
 # Here I am setting a small value to variable ``max_iter``, in order to build
 # this documentation quickly. You may want to set this variable to
 # ``max_iter=2000`` in combination with a small error tolerance ``tol=1e-3``.
