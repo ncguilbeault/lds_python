@@ -12,9 +12,9 @@ import numpy as np
 import torch
 import plotly.graph_objs as go
 
-import lds.tracking.utils
-import lds.simulation
-import lds.learning
+import ssm.tracking.utils
+import ssm.simulation
+import ssm.learning
 
 #%%
 # Simulation
@@ -25,7 +25,7 @@ import lds.learning
 # .. math::
 #    \begin{equation}
 #        \begin{alignedat}{4}
-#            & x_n&&=A x_{n-1}+w_n&&\quad with\quad&&w_n\sim\mathcal{N}(0,\textcolor{red}{\sigma_a^2}Q_e),&&\quad x_n\in\mathbb{R}^6&&\label{eq:lds}\\
+#            & x_n&&=A x_{n-1}+w_n&&\quad with\quad&&w_n\sim\mathcal{N}(0,\textcolor{red}{\sigma_a^2}Q_e),&&\quad x_n\in\mathbb{R}^6&&\label{eq:ssm}\\
 #            & y_n&&=C x_n+v_n&&\quad with\quad&&v_n\sim\mathcal{N}(0,R),&&\quad y_n\in\mathbb{R}^2,&&\quad R=\left[\begin{array}{c,c}
 #                                                                                                                       \textcolor{red}{\sigma_x^2}&0\\
 #                                                                                                                       0&\textcolor{red}{\sigma_y^2}
@@ -52,8 +52,8 @@ sigma_x = 5e-0
 sigma_y = 5e-0
 sqrt_diag_V0_value = 1e-3
 
-B, _, Z, R, Qe = lds.tracking.utils.getLDSmatricesForTracking(
-    dt=dt, sigma_a=np.nan, sigma_x=sigma_x, sigma_y=sigma_y)
+B, _, Qe, Z, R = ssm.tracking.utils.getLDSmatricesForKinematics_np(
+    dt=dt, sigma_a=np.nan, pos_x_R_std=sigma_x, pos_y_R_std=sigma_y)
 Q_true = Qe*sigma_a_true**2
 sqrt_diag_R = np.array([sigma_x, sigma_y])
 m0 = np.array([pos_x0, vel_x0, acc_x0, pos_y0, vel_y0, acc_y0],
@@ -64,9 +64,9 @@ V0 = np.diag(sqrt_diag_V0**2)
 #%%
 # Perform simulation
 # ^^^^^^^^^^^^^^^^^^
-# Code for `lds.simulation.simulateLDS
-# <https://joacorapela.github.io/lds_python/_modules/lds/simulation.html#simulateLDS>`_
-x0, x, y = lds.simulation.simulateLDS(N=num_pos, B=B, Q=Q_true, Z=Z, R=R,
+# Code for `ssm.simulation.simulateLDS
+# <https://joacorapela.github.io/ssm/_modules/ssm/simulation.html#simulateLDS>`_
+x0, x, y = ssm.simulation.simulateLDS(T=num_pos, B=B, Q=Q_true, Z=Z, R=R,
                                              m0=m0, V0=V0)
 
 #%%
@@ -93,7 +93,8 @@ fig
 # ---------------------------------------------------
 
 sigma_a0 = 0.25
-ga_vars_to_estimate = {"sigma_a": True, "sqrt_diag_R": False,
+ga_vars_to_estimate = {"sigma_a": True,
+                       "pos_x_R_std": False, "pos_y_R_std": False,
                        "m0": False, "sqrt_diag_V0": False}
 em_vars_to_estimate = {"sigma_a": True, "R": False,
                        "m0": False, "V0": False}
@@ -114,7 +115,7 @@ sqrt_noise_intensities = np.arange(sigma_a_min, sigma_a_max, sigma_a_step)
 gs_log_likes = np.empty(len(sqrt_noise_intensities))
 for i, sigma_a in enumerate(sqrt_noise_intensities):
     Q_gs = Qe * sigma_a**2
-    filterRes = lds.inference.filterLDS_SS_withMissingValues_np(
+    filterRes = ssm.inference.filterLDS_SS_withMissingValues_np(
         y=y, B=B, Q=Q_gs, m0=m0, V0=V0, Z=Z, R=R)
     gs_log_likes[i] = filterRes["logLike"]
     print(f"log likelihood for sigma_a={sigma_a:.04f}: {gs_log_likes[i]}")
@@ -127,10 +128,9 @@ print(f"max log likelihood: {gs_max_ll}, "
 #%%
 # Gradient acent
 # ^^^^^^^^^^^^^^
-# Code for `lds.learning.torch_lbfgs_optimize_SS_tracking_diagV0
-# <https://joacorapela.github.io/lds_python/_modules/lds/learning.html#torch_lbfgs_optimize_SS_tracking_diagV0>`_
+# Code for `ssm.learning.torch_lbfgs_optimize_SS_tracking_diagV0
+# <https://joacorapela.github.io/ssm/_modules/ssm/learning.html#torch_lbfgs_optimize_SS_tracking_diagV0>`_
 
-sqrt_diag_R_torch = torch.DoubleTensor([sigma_x, sigma_y])
 m0_torch = torch.from_numpy(m0)
 sqrt_diag_V0_torch = torch.DoubleTensor([sqrt_diag_V0_value
                                          for i in range(len(m0))])
@@ -138,9 +138,9 @@ y_torch = torch.from_numpy(y.astype(np.double))
 B_torch = torch.from_numpy(B.astype(np.double))
 Qe_torch = torch.from_numpy(Qe.astype(np.double))
 Z_torch = torch.from_numpy(Z.astype(np.double))
-optim_res_ga = lds.learning.torch_lbfgs_optimize_SS_tracking_diagV0(
+optim_res_ga = ssm.learning.torch_lbfgs_optimize_SS_tracking_diagV0(
     y=y_torch, B=B_torch, sigma_a0=sigma_a0,
-    Qe=Qe_torch, Z=Z_torch, sqrt_diag_R_0=sqrt_diag_R_torch, m0_0=m0_torch,
+    Qe=Qe_torch, Z=Z_torch, pos_x_R_std0=sigma_x, pos_y_R_std0=sigma_y, m0_0=m0_torch,
     sqrt_diag_V0_0=sqrt_diag_V0_torch, max_iter=lbfgs_max_iter,
     n_epochs=lbfgs_n_epochs,
     vars_to_estimate=ga_vars_to_estimate, tolerance_grad=lbfgs_tolerance_grad,
@@ -149,11 +149,11 @@ optim_res_ga = lds.learning.torch_lbfgs_optimize_SS_tracking_diagV0(
 #%%
 # EM
 # ^^
-# Code for `lds.learning.em_SS_tracking
-# <https://joacorapela.github.io/lds_python/_modules/lds/learning.html#em_SS_tracking>`_
+# Code for `ssm.learning.em_SS_tracking
+# <https://joacorapela.github.io/ssm/_modules/ssm/learning.html#em_SS_tracking>`_
 Qe_reg_param = 1e-5
 Qe_regularized = Qe + Qe_reg_param*np.eye(Qe.shape[0])
-optim_res_em = lds.learning.em_SS_tracking(
+optim_res_em = ssm.learning.em_SS_tracking(
     y=y, B=B, sigma_a0=sigma_a0,
     Qe=Qe_regularized, Z=Z, R_0=R, m0_0=m0, V0_0=V0,
     vars_to_estimate=em_vars_to_estimate, max_iter=em_max_iter)
@@ -206,7 +206,8 @@ sqrt_diag_V0_value0 = 1e-2
 sigma_a0 = 0.25
 sigma_x_0 = 5e-2
 sigma_y_0 = 5e-2
-ga_vars_to_estimate = {"sigma_a": True, "sqrt_diag_R": True, "m0": True,
+ga_vars_to_estimate = {"sigma_a": True,
+                       "pos_x_R_std": True, "pos_y_R_std": True, "m0": True,
                        "sqrt_diag_V0": True}
 em_vars_to_estimate = {"sigma_a": True, "R": True, "m0": True,
                        "V0": True}
@@ -223,8 +224,8 @@ sqrt_diag_R_0 = np.array([sigma_x_0, sigma_y_0])
 #%%
 # Gradient acent
 # ^^^^^^^^^^^^^^
-# Code for `lds.learning.torch_lbfgs_optimize_SS_tracking_diagV0
-# <https://joacorapela.github.io/lds_python/_modules/lds/learning.html#torch_lbfgs_optimize_SS_tracking_diagV0>`_
+# Code for `ssm.learning.torch_lbfgs_optimize_SS_tracking_diagV0
+# <https://joacorapela.github.io/ssm/_modules/ssm/learning.html#torch_lbfgs_optimize_SS_tracking_diagV0>`_
 
 m0_0_torch = torch.from_numpy(m0_0)
 sqrt_diag_V0_0_torch = torch.from_numpy(sqrt_diag_V0_0)
@@ -234,9 +235,10 @@ y_torch = torch.from_numpy(y.astype(np.double))
 B_torch = torch.from_numpy(B.astype(np.double))
 Qe_torch = torch.from_numpy(Qe.astype(np.double))
 Z_torch = torch.from_numpy(Z.astype(np.double))
-optim_res_ga = lds.learning.torch_lbfgs_optimize_SS_tracking_diagV0(
+optim_res_ga = ssm.learning.torch_lbfgs_optimize_SS_tracking_diagV0(
     y=y_torch, B=B_torch, sigma_a0=sigma_a0,
-    Qe=Qe_torch, Z=Z_torch, sqrt_diag_R_0=sqrt_diag_R_0_torch, m0_0=m0_0_torch,
+    Qe=Qe_torch, Z=Z_torch, pos_x_R_std0=sqrt_diag_R_0[0],
+    pos_y_R_std0=sqrt_diag_R_0[1], m0_0=m0_0_torch,
     sqrt_diag_V0_0=sqrt_diag_V0_0_torch, max_iter=lbfgs_max_iter,
     n_epochs=lbfgs_n_epochs,
     vars_to_estimate=ga_vars_to_estimate, tolerance_grad=lbfgs_tolerance_grad,
@@ -245,13 +247,13 @@ optim_res_ga = lds.learning.torch_lbfgs_optimize_SS_tracking_diagV0(
 #%%
 # EM
 # ^^
-# Code for `lds.learning.em_SS_tracking
-# <https://joacorapela.github.io/lds_python/_modules/lds/learning.html#em_SS_tracking>`_
+# Code for `ssm.learning.em_SS_tracking
+# <https://joacorapela.github.io/ssm/_modules/ssm/learning.html#em_SS_tracking>`_
 V0_0 = np.diag(sqrt_diag_V0_0**2)
 R0 = np.diag(sqrt_diag_R_0)
 Qe_reg_param = 1e-5
 Qe_regularized = Qe + Qe_reg_param*np.eye(Qe.shape[0])
-optim_res_em = lds.learning.em_SS_tracking(
+optim_res_em = ssm.learning.em_SS_tracking(
     y=y, B=B, sigma_a0=sigma_a0,
     Qe=Qe_regularized, Z=Z, R_0=R0, m0_0=m0_0, V0_0=V0_0,
     vars_to_estimate=em_vars_to_estimate, max_iter=em_max_iter)
@@ -295,7 +297,7 @@ fig
 
 fig = go.Figure()
 trace = go.Bar(x=["Gradient Ascent", "EM"],
-               y=[optim_res_ga["estimates"]["sqrt_diag_R"][0].item()**2,
+               y=[optim_res_ga["estimates"]["pos_x_R_std"].item()**2,
                   optim_res_em["estimates"]["R"][0, 0]])
 fig.add_trace(trace)
 fig.add_hline(y=sqrt_diag_R[0]**2)
