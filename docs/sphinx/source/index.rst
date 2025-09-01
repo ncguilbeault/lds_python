@@ -17,7 +17,7 @@ Linear Dynamical Systems's documentation
    :maxdepth: 4
    :caption: Code:
 
-    modules
+   modules
 
 Indices and tables
 ==================
