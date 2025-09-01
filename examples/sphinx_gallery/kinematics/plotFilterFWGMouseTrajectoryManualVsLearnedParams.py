@@ -31,9 +31,9 @@ import pandas as pd
 import torch
 import plotly.graph_objects as go
 
-import lds.tracking.utils
-import lds.inference
-import lds.learning
+import ssm.tracking.utils
+import ssm.inference
+import ssm.learning
 
 #%%
 # Setup configuration variables
@@ -60,8 +60,8 @@ y = np.transpose(data[["x", "y"]].to_numpy())
 
 date_times = pd.to_datetime(data["time"])
 dt = (date_times.iloc[1]-date_times.iloc[0]).total_seconds()
-B, _, Z, _, Qe = lds.tracking.utils.getLDSmatricesForTracking(
-    dt=dt, sigma_a=np.nan, sigma_x=np.nan, sigma_y=np.nan)
+B, _, Qe,  Z, _ = ssm.tracking.utils.getLDSmatricesForKinematics_np(
+    dt=dt, sigma_a=np.nan, pos_x_R_std=np.nan, pos_y_R_std=np.nan)
 
 #%%
 # Filtering with manual parameters
@@ -73,9 +73,9 @@ vel_x0_manual = 0.0
 vel_y0_manual = 0.0
 acc_x0_manual = 0.0
 acc_y0_manual = 0.0
-sigma_a_manual = 1e4
-sigma_x_manual = 1e2
-sigma_y_manual = 1e2
+sigma_a_manual = 1e1
+sigma_x_manual = 1e1
+sigma_y_manual = 1e1
 sqrt_diag_V0_value_manual = 1e-3
 
 m0_manual = np.array([pos_x0_manual, vel_x0_manual, acc_x0_manual,
@@ -84,12 +84,12 @@ R_manual = np.diag([sigma_x_manual**2, sigma_y_manual**2])
 V0_manual = np.diag(np.ones(len(m0_manual))*sqrt_diag_V0_value_manual**2)
 Q_manual = Qe*sigma_a_manual
 
-filterRes_manual = lds.inference.filterLDS_SS_withMissingValues_np(
+filterRes_manual = ssm.inference.filterLDS_SS_withMissingValues_np(
     y=y, B=B, Q=Q_manual, m0=m0_manual, V0=V0_manual, Z=Z, R=R_manual)
 
-smoothRes_manual = lds.inference.smoothLDS_SS(
-    B=B, xnn=filterRes_manual["xnn"], Vnn=filterRes_manual["Vnn"],
-    xnn1=filterRes_manual["xnn1"], Vnn1=filterRes_manual["Vnn1"],
+smoothRes_manual = ssm.inference.smoothLDS_SS(
+    B=B, xnn=filterRes_manual["xnn"], Pnn=filterRes_manual["Pnn"],
+    xnn1=filterRes_manual["xnn1"], Pnn1=filterRes_manual["Pnn1"],
     m0=m0_manual, V0=V0_manual)
 
 #%%
@@ -108,11 +108,12 @@ skip_estimation_V0 = False
 lbfgs_max_iter = 2
 lbfgs_tolerance_grad = -1
 lbfgs_tolerance_change = 1e-3
-lbfgs_lr = 0.01
-lbfgs_n_epochs = 75
+lbfgs_lr = 1e-4
+lbfgs_n_epochs = 1
 lbfgs_tol = 1e-3
-Qe_reg_param_learned = 1e-2
-sqrt_diag_R_torch = torch.DoubleTensor([sigma_x_manual, sigma_y_manual])
+Qe_reg_param_learned = 1e-5
+pos_x_R_std0_torch = torch.DoubleTensor([sigma_x_manual])
+pos_y_R_std0_torch = torch.DoubleTensor([sigma_y_manual])
 m0_torch = torch.from_numpy(m0_manual.copy())
 sqrt_diag_V0_torch = torch.DoubleTensor([sqrt_diag_V0_value_manual
                                          for i in range(len(m0_manual))])
@@ -134,9 +135,13 @@ else:
 if skip_estimation_R:
     vars_to_estimate["sqrt_diag_R"] = False
     vars_to_estimate["R"] = False
+    vars_to_estimate["pos_x_R_std"] = False
+    vars_to_estimate["pos_y_R_std"] = False
 else:
     vars_to_estimate["sqrt_diag_R"] = True
     vars_to_estimate["R"] = True
+    vars_to_estimate["pos_x_R_std"] = True
+    vars_to_estimate["pos_y_R_std"] = True
 
 if skip_estimation_m0:
     vars_to_estimate["m0"] = False
@@ -150,9 +155,10 @@ else:
     vars_to_estimate["sqrt_diag_V0"] = True
     vars_to_estimate["V0"] = True
 
-optim_res_learned = lds.learning.torch_lbfgs_optimize_SS_tracking_diagV0(
+optim_res_learned = ssm.learning.torch_lbfgs_optimize_SS_tracking_diagV0(
     y=y_torch, B=B_torch, sigma_a0=sigma_a_manual,
-    Qe=Qe_regularized_learned_torch, Z=Z_torch, sqrt_diag_R_0=sqrt_diag_R_torch, m0_0=m0_torch,
+    Qe=Qe_regularized_learned_torch, Z=Z_torch, pos_x_R_std0=pos_x_R_std0_torch,
+    pos_y_R_std0=pos_y_R_std0_torch, m0_0=m0_torch,
     sqrt_diag_V0_0=sqrt_diag_V0_torch, max_iter=lbfgs_max_iter, lr=lbfgs_lr,
     vars_to_estimate=vars_to_estimate, tolerance_grad=lbfgs_tolerance_grad,
     tolerance_change=lbfgs_tolerance_change, n_epochs=lbfgs_n_epochs,
@@ -165,14 +171,15 @@ optim_res_learned = lds.learning.torch_lbfgs_optimize_SS_tracking_diagV0(
 Q_learned = optim_res_learned["estimates"]["sigma_a"].item()**2*Qe
 m0_learned = optim_res_learned["estimates"]["m0"].numpy()
 V0_learned = np.diag(optim_res_learned["estimates"]["sqrt_diag_V0"].numpy()**2)
-R_learned = np.diag(optim_res_learned["estimates"]["sqrt_diag_R"].numpy()**2)
+R_learned = np.diag([optim_res_learned["estimates"]["pos_x_R_std"].item()**2,
+                     optim_res_learned["estimates"]["pos_y_R_std"].item()**2])
 
-filterRes_learned = lds.inference.filterLDS_SS_withMissingValues_np(
+filterRes_learned = ssm.inference.filterLDS_SS_withMissingValues_np(
     y=y, B=B, Q=Q_learned, m0=m0_learned, V0=V0_learned, Z=Z, R=R_learned)
 
-smoothRes_learned = lds.inference.smoothLDS_SS(
-    B=B, xnn=filterRes_learned["xnn"], Vnn=filterRes_learned["Vnn"],
-    xnn1=filterRes_learned["xnn1"], Vnn1=filterRes_learned["Vnn1"], m0=m0_learned, V0=V0_learned)
+smoothRes_learned = ssm.inference.smoothLDS_SS(
+    B=B, xnn=filterRes_learned["xnn"], Pnn=filterRes_learned["Pnn"],
+    xnn1=filterRes_learned["xnn1"], Pnn1=filterRes_learned["Pnn1"], m0=m0_learned, V0=V0_learned)
 
 #%%
 # Plots
@@ -325,17 +332,17 @@ N = y.shape[1]
 time = np.arange(0, N*dt, dt)
 
 filtered_means_manual = filterRes_manual["xnn"]
-filtered_covs_manual = filterRes_manual["Vnn"]
+filtered_covs_manual = filterRes_manual["Pnn"]
 filtered_std_x_y_manual = np.sqrt(np.diagonal(a=filtered_covs_manual, axis1=0, axis2=1))
 filtered_means_learned = filterRes_learned["xnn"]
-filtered_covs_learned = filterRes_learned["Vnn"]
+filtered_covs_learned = filterRes_learned["Pnn"]
 filtered_std_x_y_learned = np.sqrt(np.diagonal(a=filtered_covs_learned, axis1=0, axis2=1))
 
 smoothed_means_manual = smoothRes_manual["xnN"]
-smoothed_covs_manual = smoothRes_manual["VnN"]
+smoothed_covs_manual = smoothRes_manual["PnN"]
 smoothed_std_x_y_manual = np.sqrt(np.diagonal(a=smoothed_covs_manual, axis1=0, axis2=1))
 smoothed_means_learned = smoothRes_learned["xnN"]
-smoothed_covs_learned = smoothRes_learned["VnN"]
+smoothed_covs_learned = smoothRes_learned["PnN"]
 smoothed_std_x_y_learned = np.sqrt(np.diagonal(a=smoothed_covs_learned, axis1=0, axis2=1))
 
 color_true = "blue"
