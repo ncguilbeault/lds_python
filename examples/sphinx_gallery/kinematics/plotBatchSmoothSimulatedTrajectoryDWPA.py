@@ -16,9 +16,9 @@ import configparser
 import numpy as np
 import plotly.graph_objects as go
 
-import lds.tracking.utils
-import lds.simulation
-import lds.inference
+import ssm.tracking.utils
+import ssm.simulation
+import ssm.inference
 
 
 #%%
@@ -42,8 +42,8 @@ sqrt_diag_V0_value = 1e-03
 # Set LDS parameters
 # ~~~~~~~~~~~~~~~~~~
 
-B, Q, Z, R, Qe = lds.tracking.utils.getLDSmatricesForTracking(
-    dt=dt, sigma_a=sigma_a, sigma_x=sigma_x, sigma_y=sigma_y)
+B, Q, Qe, Z, R = ssm.tracking.utils.getLDSmatricesForKinematics_np(
+    dt=dt, sigma_a=sigma_a, pos_x_R_std=sigma_x, pos_y_R_std=sigma_y)
 m0 = np.array([pos_x0, vel_x0, ace_x0, pos_y0, vel_y0, ace_y0],
               dtype=np.double)
 V0 = np.diag(np.ones(len(m0))*sqrt_diag_V0_value**2)
@@ -51,31 +51,31 @@ V0 = np.diag(np.ones(len(m0))*sqrt_diag_V0_value**2)
 #%%
 # Sample from the LDS
 # ~~~~~~~~~~~~~~~~~~~
-# View source code of `lds.simulation.simulateLDS
-# <https://joacorapela.github.io/lds_python/_modules/lds/simulation.html#simulateLDS>`_
+# View source code of `ssm.simulation.simulateLDS
+# <https://joacorapela.github.io/ssm/_modules/ssm/simulation.html#simulateLDS>`_
 
-x0, x, y = lds.simulation.simulateLDS(N=num_pos, B=B, Q=Q, Z=Z, R=R,
+x0, x, y = ssm.simulation.simulateLDS(T=num_pos, B=B, Q=Q, Z=Z, R=R,
                                              m0=m0, V0=V0)
 
 #%%
 # Perform batch filtering
 # ~~~~~~~~~~~~~~~~~~~~~~~
-# View source code of `lds.inference.filterLDS_SS_withMissingValues_np
-# <https://joacorapela.github.io/lds_python/_modules/lds/inference.html#filterLDS_SS_withMissingValues_np>`_
+# View source code of `ssm.inference.filterLDS_SS_withMissingValues_np
+# <https://joacorapela.github.io/ssm/_modules/ssm/inference.html#filterLDS_SS_withMissingValues_np>`_
 
 Q = sigma_a*Qe
-filterRes = lds.inference.filterLDS_SS_withMissingValues_np(
+filterRes = ssm.inference.filterLDS_SS_withMissingValues_np(
     y=y, B=B, Q=Q, m0=m0, V0=V0, Z=Z, R=R)
 
 #%%
 # Perform batch smoothing
 # ~~~~~~~~~~~~~~~~~~~~~~~
-# View source code of `lds.inference.smoothLDS_SS
-# <https://joacorapela.github.io/lds_python/_modules/lds/inference.html#smoothLDS_SS>`_
+# View source code of `ssm.inference.smoothLDS_SS
+# <https://joacorapela.github.io/ssm/_modules/ssm/inference.html#smoothLDS_SS>`_
 
-smoothRes = lds.inference.smoothLDS_SS(
-    B=B, xnn=filterRes["xnn"], Vnn=filterRes["Vnn"],
-    xnn1=filterRes["xnn1"], Vnn1=filterRes["Vnn1"], m0=m0, V0=V0)
+smoothRes = ssm.inference.smoothLDS_SS(
+    B=B, xnn=filterRes["xnn"], Pnn=filterRes["Pnn"],
+    xnn1=filterRes["xnn1"], Pnn1=filterRes["Pnn1"], m0=m0, V0=V0)
 
 #%%
 # Set variables for plotting
@@ -84,7 +84,7 @@ smoothRes = lds.inference.smoothLDS_SS(
 N = y.shape[1]
 time = np.arange(0, N*dt, dt)
 smoothed_means = smoothRes["xnN"]
-smoothed_covs = smoothRes["VnN"]
+smoothed_covs = smoothRes["PnN"]
 smoothed_std_x_y = np.sqrt(np.diagonal(a=smoothed_covs, axis1=0, axis2=1))
 color_true = "blue"
 color_measured = "black"
