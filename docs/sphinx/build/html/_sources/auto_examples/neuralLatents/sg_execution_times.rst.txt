@@ -1,0 +1,15 @@
+
+:orphan:
+
+.. _sphx_glr_auto_examples_neuralLatents_sg_execution_times:
+
+
+Computation times
+=================
+**04:39.804** total execution time for **auto_examples_neuralLatents** files:
+
++-----------------------------------------------------------------------------------------------+-----------+--------+
+| :ref:`sphx_glr_auto_examples_neuralLatents_plot_MC_MAZE_SMALL.py` (``plot_MC_MAZE_SMALL.py``) | 04:26.060 | 0.0 MB |
++-----------------------------------------------------------------------------------------------+-----------+--------+
+| :ref:`sphx_glr_auto_examples_neuralLatents_plot_simulations.py` (``plot_simulations.py``)     | 00:13.744 | 0.0 MB |
++-----------------------------------------------------------------------------------------------+-----------+--------+
