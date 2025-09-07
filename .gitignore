@@ -19,7 +19,6 @@ docs/lectures/neuroinformatics/2023/*
 !docs/lectures/neuroinformatics/2023/ldsForNeuro.tex
 !docs/lectures/neuroinformatics/2023/ldsForNeuro.pdf
 
-docs/sphinx/build/
 docs/sphinx/source/auto_examples/
 data/*
 **/old
